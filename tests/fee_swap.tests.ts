@@ -1,5 +1,8 @@
+import { getAssociatedTokenAddressSync, NATIVE_MINT } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
-import { ProgramTestContext } from "solana-bankrun";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
   BaseFee,
   ConfigParameters,
@@ -10,22 +13,21 @@ import {
   SwapMode,
   SwapParams,
 } from "./instructions";
-import { Pool, VirtualCurveProgram } from "./utils/types";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { fundSol, getTokenAccount, startTest } from "./utils";
 import {
   createVirtualCurveProgram,
+  generateAndFund,
+  getTokenAccount,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  startSvm,
   U64_MAX,
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
-import { getAssociatedTokenAddressSync, NATIVE_MINT } from "@solana/spl-token";
-import { expect } from "chai";
+import { Pool, VirtualCurveProgram } from "./utils/types";
 
 describe("Fee Swap test", () => {
   describe("Fee charge on BothToken", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let partner: Keypair;
     let user: Keypair;
@@ -37,19 +39,12 @@ describe("Fee Swap test", () => {
     let virtualPoolState: Pool;
 
     before(async () => {
-      context = await startTest();
-      admin = context.payer;
-      partner = Keypair.generate();
-      user = Keypair.generate();
-      poolCreator = Keypair.generate();
-      operator = Keypair.generate();
-      const receivers = [
-        partner.publicKey,
-        user.publicKey,
-        poolCreator.publicKey,
-        operator.publicKey,
-      ];
-      await fundSol(context.banksClient, admin, receivers);
+      svm = startSvm();
+      admin = generateAndFund(svm);
+      partner = generateAndFund(svm);
+      user = generateAndFund(svm);
+      poolCreator = generateAndFund(svm);
+      operator = generateAndFund(svm);
       program = createVirtualCurveProgram();
 
       const baseFee: BaseFee = {
@@ -83,14 +78,14 @@ describe("Fee Swap test", () => {
         },
         activationType: 0,
         collectFeeMode: 1, // BothToken
-        migrationOption: 0,
+        migrationOption: 1,
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 95,
-        creatorLockedLpPercentage: 5,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 95,
+        creatorPermanentLockedLiquidityPercentage: 5,
         sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
         lockedVesting: {
           amountPerPeriod: new BN(0),
@@ -112,19 +107,37 @@ describe("Fee Swap test", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
-        padding: [],
+        poolCreationFee: new BN(0),
         curve: curves,
+        creatorLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        partnerLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        enableFirstSwapWithMinFee: false,
+        compoundingFeeBps: 0,
+        migratedPoolBaseFeeMode: 0,
+        migratedPoolMarketCapFeeSchedulerParams: null,
       };
-      const params: CreateConfigParams = {
+      const params: CreateConfigParams<ConfigParameters> = {
         payer: partner,
         leftoverReceiver: partner.publicKey,
         feeClaimer: partner.publicKey,
         quoteMint: NATIVE_MINT,
         instructionParams,
       };
-      config = await createConfig(context.banksClient, program, params);
+      config = await createConfig(svm, program, params);
 
-      virtualPool = await createPoolWithSplToken(context.banksClient, program, {
+      virtualPool = await createPoolWithSplToken(svm, program, {
         poolCreator,
         payer: operator,
         quoteMint: NATIVE_MINT,
@@ -138,11 +151,7 @@ describe("Fee Swap test", () => {
     });
 
     it("Swap Quote to Base", async () => {
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
@@ -154,15 +163,9 @@ describe("Fee Swap test", () => {
 
       // use to validate actual balance in vault
       const preBaseVaultBalance =
-        (await getTokenAccount(context.banksClient, virtualPoolState.baseVault))
-          .amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.baseVault).amount ?? 0;
       const preQuoteVaultBalance =
-        (
-          await getTokenAccount(
-            context.banksClient,
-            virtualPoolState.quoteVault
-          )
-        ).amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
       const inAmount = LAMPORTS_PER_SOL;
       const params: SwapParams = {
@@ -176,14 +179,10 @@ describe("Fee Swap test", () => {
         swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
-      await swap(context.banksClient, program, params);
+      await swap(svm, program, params);
 
       // reload new virtualPoolState
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
@@ -194,11 +193,13 @@ describe("Fee Swap test", () => {
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
       // use to validate actual balance in vault
-      const postBaseVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.baseVault)
+      const postBaseVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.baseVault
       ).amount;
-      const postQuoteVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.quoteVault)
+      const postQuoteVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.quoteVault
       ).amount;
 
       const totalSwapBaseTradingFee = postBaseTradingFee.sub(preBaseTradingFee);
@@ -214,8 +215,9 @@ describe("Fee Swap test", () => {
         virtualPoolState.baseMint,
         user.publicKey
       );
-      const userBaseBaseBalance = (
-        await getTokenAccount(context.banksClient, userBaseTokenAccount)
+      const userBaseBaseBalance = getTokenAccount(
+        svm,
+        userBaseTokenAccount
       ).amount;
 
       // assert virtual state changed
@@ -255,11 +257,7 @@ describe("Fee Swap test", () => {
     });
 
     it("Swap Base to Quote", async () => {
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
@@ -271,23 +269,17 @@ describe("Fee Swap test", () => {
 
       // use to validate actual balance in vault
       const preBaseVaultBalance =
-        (await getTokenAccount(context.banksClient, virtualPoolState.baseVault))
-          .amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.baseVault).amount ?? 0;
       const preQuoteVaultBalance =
-        (
-          await getTokenAccount(
-            context.banksClient,
-            virtualPoolState.quoteVault
-          )
-        ).amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
       const userBaseTokenAccount = getAssociatedTokenAddressSync(
         virtualPoolState.baseMint,
         user.publicKey
       );
-      const preUserBaseBaseBalance = (
-        await getTokenAccount(context.banksClient, userBaseTokenAccount)
-      ).amount;
+      const preUserBaseBaseBalance = getTokenAccount(svm, userBaseTokenAccount)
+        ? getTokenAccount(svm, userBaseTokenAccount).amount
+        : 0;
 
       const inAmount = preUserBaseBaseBalance;
       const params: SwapParams = {
@@ -301,14 +293,10 @@ describe("Fee Swap test", () => {
         swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
-      await swap(context.banksClient, program, params);
+      await swap(svm, program, params);
 
       // reload new virtualPoolState
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
@@ -319,11 +307,13 @@ describe("Fee Swap test", () => {
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
       // use to validate actual balance in vault
-      const postBaseVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.baseVault)
+      const postBaseVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.baseVault
       ).amount;
-      const postQuoteVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.quoteVault)
+      const postQuoteVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.quoteVault
       ).amount;
 
       const totalSwapBaseTradingFee = postBaseTradingFee.sub(preBaseTradingFee);
@@ -335,8 +325,9 @@ describe("Fee Swap test", () => {
       const totalSwapQuoteProtocolFee =
         postQuoteProtocolFee.sub(preQuoteProtocolFee);
 
-      const postUserBaseBaseBalance = (
-        await getTokenAccount(context.banksClient, userBaseTokenAccount)
+      const postUserBaseBaseBalance = getTokenAccount(
+        svm,
+        userBaseTokenAccount
       ).amount;
 
       // assert virtual state changed
@@ -380,7 +371,7 @@ describe("Fee Swap test", () => {
   });
 
   describe("Fee charge on OnlyB token (Quote token)", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let partner: Keypair;
     let user: Keypair;
@@ -392,20 +383,12 @@ describe("Fee Swap test", () => {
     let virtualPoolState: Pool;
 
     before(async () => {
-      context = await startTest();
-      admin = context.payer;
-      partner = Keypair.generate();
-      user = Keypair.generate();
-      poolCreator = Keypair.generate();
-      operator = Keypair.generate();
-
-      const receivers = [
-        partner.publicKey,
-        user.publicKey,
-        poolCreator.publicKey,
-        operator.publicKey,
-      ];
-      await fundSol(context.banksClient, admin, receivers);
+      svm = startSvm();
+      admin = generateAndFund(svm);
+      partner = generateAndFund(svm);
+      user = generateAndFund(svm);
+      poolCreator = generateAndFund(svm);
+      operator = generateAndFund(svm);
       program = createVirtualCurveProgram();
 
       const baseFee: BaseFee = {
@@ -439,14 +422,14 @@ describe("Fee Swap test", () => {
         },
         activationType: 0,
         collectFeeMode: 0, // OnlyB - only quote token
-        migrationOption: 0,
+        migrationOption: 1,
         tokenType: 0, // spl_token
         tokenDecimal: 6,
         migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-        partnerLpPercentage: 0,
-        creatorLpPercentage: 0,
-        partnerLockedLpPercentage: 95,
-        creatorLockedLpPercentage: 5,
+        partnerLiquidityPercentage: 0,
+        creatorLiquidityPercentage: 0,
+        partnerPermanentLockedLiquidityPercentage: 95,
+        creatorPermanentLockedLiquidityPercentage: 5,
         sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
         lockedVesting: {
           amountPerPeriod: new BN(0),
@@ -468,19 +451,37 @@ describe("Fee Swap test", () => {
           dynamicFee: 0,
           poolFeeBps: 0,
         },
-        padding: [],
+        creatorLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        partnerLiquidityVestingInfo: {
+          vestingPercentage: 0,
+          cliffDurationFromMigrationTime: 0,
+          bpsPerPeriod: 0,
+          numberOfPeriods: 0,
+          frequency: 0,
+        },
+        poolCreationFee: new BN(0),
+        enableFirstSwapWithMinFee: false,
+        compoundingFeeBps: 0,
+        migratedPoolBaseFeeMode: 0,
+        migratedPoolMarketCapFeeSchedulerParams: null,
         curve: curves,
       };
-      const params: CreateConfigParams = {
+      const params: CreateConfigParams<ConfigParameters> = {
         payer: partner,
         leftoverReceiver: partner.publicKey,
         feeClaimer: partner.publicKey,
         quoteMint: NATIVE_MINT,
         instructionParams,
       };
-      config = await createConfig(context.banksClient, program, params);
+      config = await createConfig(svm, program, params);
 
-      virtualPool = await createPoolWithSplToken(context.banksClient, program, {
+      virtualPool = await createPoolWithSplToken(svm, program, {
         poolCreator,
         payer: operator,
         quoteMint: NATIVE_MINT,
@@ -494,11 +495,7 @@ describe("Fee Swap test", () => {
     });
 
     it("Swap Quote to Base", async () => {
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
@@ -510,15 +507,9 @@ describe("Fee Swap test", () => {
 
       // use to validate actual balance in vault
       const preBaseVaultBalance =
-        (await getTokenAccount(context.banksClient, virtualPoolState.baseVault))
-          .amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.baseVault).amount ?? 0;
       const preQuoteVaultBalance =
-        (
-          await getTokenAccount(
-            context.banksClient,
-            virtualPoolState.quoteVault
-          )
-        ).amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
       const inAmount = LAMPORTS_PER_SOL;
       const params: SwapParams = {
@@ -532,14 +523,10 @@ describe("Fee Swap test", () => {
         swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
-      await swap(context.banksClient, program, params);
+      await swap(svm, program, params);
 
       // reload new virtualPoolState
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
@@ -550,11 +537,13 @@ describe("Fee Swap test", () => {
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
       // use to validate actual balance in vault
-      const postBaseVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.baseVault)
+      const postBaseVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.baseVault
       ).amount;
-      const postQuoteVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.quoteVault)
+      const postQuoteVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.quoteVault
       ).amount;
 
       const totalSwapBaseTradingFee = postBaseTradingFee.sub(preBaseTradingFee);
@@ -570,8 +559,9 @@ describe("Fee Swap test", () => {
         virtualPoolState.baseMint,
         user.publicKey
       );
-      const userBaseBaseBalance = (
-        await getTokenAccount(context.banksClient, userBaseTokenAccount)
+      const userBaseBaseBalance = getTokenAccount(
+        svm,
+        userBaseTokenAccount
       ).amount;
       const actualInAmount = new BN(inAmount)
         .sub(totalSwapQuoteProtocolFee)
@@ -605,11 +595,7 @@ describe("Fee Swap test", () => {
     });
 
     it("Swap Base to Quote", async () => {
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
@@ -621,22 +607,17 @@ describe("Fee Swap test", () => {
 
       // use to validate actual balance in vault
       const preBaseVaultBalance =
-        (await getTokenAccount(context.banksClient, virtualPoolState.baseVault))
-          .amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.baseVault).amount ?? 0;
       const preQuoteVaultBalance =
-        (
-          await getTokenAccount(
-            context.banksClient,
-            virtualPoolState.quoteVault
-          )
-        ).amount ?? 0;
+        getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
       const userBaseTokenAccount = getAssociatedTokenAddressSync(
         virtualPoolState.baseMint,
         user.publicKey
       );
-      const preUserBaseBaseBalance = (
-        await getTokenAccount(context.banksClient, userBaseTokenAccount)
+      const preUserBaseBaseBalance = getTokenAccount(
+        svm,
+        userBaseTokenAccount
       ).amount;
 
       const inAmount = preUserBaseBaseBalance;
@@ -651,14 +632,10 @@ describe("Fee Swap test", () => {
         swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
-      await swap(context.banksClient, program, params);
+      await swap(svm, program, params);
 
       // reload new virtualPoolState
-      virtualPoolState = await getVirtualPool(
-        context.banksClient,
-        program,
-        virtualPool
-      );
+      virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
@@ -669,11 +646,13 @@ describe("Fee Swap test", () => {
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
       // use to validate actual balance in vault
-      const postBaseVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.baseVault)
+      const postBaseVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.baseVault
       ).amount;
-      const postQuoteVaultBalance = (
-        await getTokenAccount(context.banksClient, virtualPoolState.quoteVault)
+      const postQuoteVaultBalance = getTokenAccount(
+        svm,
+        virtualPoolState.quoteVault
       ).amount;
 
       const totalSwapBaseTradingFee = postBaseTradingFee.sub(preBaseTradingFee);
@@ -685,8 +664,9 @@ describe("Fee Swap test", () => {
       const totalSwapQuoteProtocolFee =
         postQuoteProtocolFee.sub(preQuoteProtocolFee);
 
-      const postUserBaseBaseBalance = (
-        await getTokenAccount(context.banksClient, userBaseTokenAccount)
+      const postUserBaseBaseBalance = getTokenAccount(
+        svm,
+        userBaseTokenAccount
       ).amount;
       expect(totalSwapBaseProtolFee.toNumber()).eq(0);
       expect(totalSwapBaseTradingFee.toNumber()).eq(0);

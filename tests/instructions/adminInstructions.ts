@@ -1,110 +1,135 @@
-import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { BanksClient } from "solana-bankrun";
-import {
-  deriveClaimFeeOperatorAddress,
-  deriveMigrationMetadataAddress,
-  derivePoolAuthority,
-} from "../utils/accounts";
-import { VirtualCurveProgram } from "../utils/types";
-import {
-  getOrCreateAssociatedTokenAccount,
-  getVirtualPool,
-  getTokenAccount,
-  processTransactionMaybeThrow,
-  TREASURY,
-  getClaimFeeOperator,
-  getConfig,
-} from "../utils";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { expect } from "chai";
-import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
+import {
+  getConfig,
+  getVirtualPool,
+  sendTransactionMaybeThrow,
+  TREASURY,
+} from "../utils";
+import {
+  deriveOperatorAddress,
+  derivePoolAuthority,
+  deriveTokenBadgeAddress,
+} from "../utils/accounts";
+import { Pool, PoolConfig, VirtualCurveProgram } from "../utils/types";
+import BN from "bn.js";
+import { getRemainingAccountsForTransferHook } from "../utils/token";
 
-export type CreateClaimfeeOperatorParams = {
-  admin: Keypair;
-  operator: PublicKey;
-};
+export enum OperatorPermission {
+  ClaimProtocolFee,
+  ZapProtocolFee,
+  CreateTokenBadge,
+  CloseTokenBadge,
+}
 
-export async function createClaimFeeOperator(
-  banksClient: BanksClient,
+export function encodePermissions(permissions: OperatorPermission[]): BN {
+  return permissions.reduce((acc, perm) => {
+    return acc.or(new BN(1).shln(perm));
+  }, new BN(0));
+}
+
+export async function createOperatorAccount(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateClaimfeeOperatorParams
-): Promise<PublicKey> {
-  const { operator, admin } = params;
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
+  params: {
+    admin: Keypair;
+    whitelistedAddress: PublicKey;
+    permissions: OperatorPermission[];
+  }
+) {
+  const { admin, whitelistedAddress, permissions } = params;
+
   const transaction = await program.methods
-    .createClaimFeeOperator()
+    .createOperatorAccount(encodePermissions(permissions))
     .accountsPartial({
-      claimFeeOperator,
-      operator,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress),
+      whitelistedAddress,
+      payer: admin.publicKey,
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  const claimFeeOperatorState = await getClaimFeeOperator(
-    banksClient,
-    program,
-    claimFeeOperator
-  );
-  expect(claimFeeOperatorState.operator.toString()).eq(operator.toString());
-
-  return claimFeeOperator;
+  sendTransactionMaybeThrow(svm, transaction, [admin]);
 }
 
-export async function closeClaimFeeOperator(
-  banksClient: BanksClient,
+export async function createTokenBadge(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
-  admin: Keypair,
-  claimFeeOperator: PublicKey
-): Promise<any> {
+  params: {
+    operator: Keypair;
+    payer: Keypair;
+    tokenMint: PublicKey;
+  }
+) {
+  const { operator, payer, tokenMint } = params;
+
   const transaction = await program.methods
-    .closeClaimFeeOperator()
-    .accounts({
-      claimFeeOperator,
-      rentReceiver: admin.publicKey,
-      admin: admin.publicKey,
+    .createTokenBadge()
+    .accountsPartial({
+      tokenBadge: deriveTokenBadgeAddress(tokenMint),
+      tokenMint,
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      payer: payer.publicKey,
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
-
-  const claimFeeOperatorState = await getClaimFeeOperator(
-    banksClient,
-    program,
-    claimFeeOperator
-  );
-  expect(claimFeeOperatorState).to.be.null;
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [operator, payer]);
 }
 
-export type ClaimPoolCreationFeeParams = {
+export async function closeTokenBadge(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: {
+    operator: Keypair;
+    tokenMint: PublicKey;
+    rentReceiver: PublicKey;
+  }
+) {
+  const { operator, tokenMint, rentReceiver } = params;
+
+  const transaction = await program.methods
+    .closeTokenBadge()
+    .accountsPartial({
+      tokenBadge: deriveTokenBadgeAddress(tokenMint),
+      operator: deriveOperatorAddress(operator.publicKey),
+      signer: operator.publicKey,
+      rentReceiver,
+    })
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
+}
+
+export type ClaimLegacyPoolCreationFeeParams = {
   operator: Keypair;
   pool: PublicKey;
 };
 
-export async function claimPoolCreationFee(
-  banksClient: BanksClient,
-  program: VirtualCurveProgram,
-  params: ClaimPoolCreationFeeParams
-) {
-  const { operator, pool } = params;
+export type ClaimProtocolPoolCreationFeeParams = {
+  operator: Keypair;
+  pool: PublicKey;
+  claimFeeOperator: PublicKey;
+};
 
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+export async function claimProtocolPoolCreationFee(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: ClaimProtocolPoolCreationFeeParams
+) {
+  const { operator, pool, claimFeeOperator } = params;
+
+  const poolState = getVirtualPool(svm, program, pool);
 
   const transaction = await program.methods
-    .claimPoolCreationFee()
+    .claimProtocolPoolCreationFee()
     .accountsPartial({
       pool,
+      config: poolState.config,
       treasury: TREASURY,
-      operator: operator.publicKey,
-      systemProgram: SYSTEM_PROGRAM_ID,
-      claimFeeOperator,
+      signer: operator.publicKey,
+      operator: deriveOperatorAddress(operator.publicKey),
     })
     // Trick to bypass bankrun transaction has been processed if we wish to execute same tx again
     .remainingAccounts([
@@ -115,154 +140,78 @@ export async function claimPoolCreationFee(
       },
     ])
     .transaction();
-
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(operator);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 
-export type ClaimProtocolFeeParams = {
-  operator: Keypair;
+const PARTNER_AND_CREATOR_SURPLUS_SHARE = 80;
+
+function getClaimableProtocolAmount(
+  pool: Pool,
+  config: PoolConfig,
+  isTokenBase: boolean
+): BN {
+  if (isTokenBase) {
+    return pool.protocolBaseFee.add(pool.protocolMigrationBaseFeeAmount);
+  }
+
+  let amount = pool.protocolQuoteFee.add(pool.protocolMigrationQuoteFeeAmount);
+
+  const isCurveComplete = pool.quoteReserve.gte(config.migrationQuoteThreshold);
+  if (pool.isProtocolWithdrawSurplus === 0 && isCurveComplete) {
+    const totalSurplus = pool.quoteReserve.sub(config.migrationQuoteThreshold);
+    const partnerAndCreatorSurplus = totalSurplus
+      .muln(PARTNER_AND_CREATOR_SURPLUS_SHARE)
+      .divn(100);
+    const protocolSurplus = totalSurplus.sub(partnerAndCreatorSurplus);
+    amount = amount.add(protocolSurplus);
+  }
+
+  return amount;
+}
+
+export type ClaimProtocolFee2Params = {
+  signerKP: Keypair;
   pool: PublicKey;
+  isTokenBase: boolean;
+  receiverTokenAccount: PublicKey;
+  maxAmount?: BN;
 };
 
-export async function claimProtocolFee(
-  banksClient: BanksClient,
+export async function claimProtocolFee2(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: ClaimProtocolFeeParams
-): Promise<any> {
-  const { operator, pool } = params;
-  const poolState = await getVirtualPool(banksClient, program, pool);
-  const configState = await getConfig(banksClient, program, poolState.config);
-  const totalQuoteProtocolFee = poolState.protocolQuoteFee;
-  const totalBaseProtocolFee = poolState.protocolBaseFee;
+  params: ClaimProtocolFee2Params
+) {
+  const { signerKP, pool, isTokenBase, receiverTokenAccount } = params;
+  const poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, poolState.config);
   const poolAuthority = derivePoolAuthority();
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
-  const quoteMintInfo = await getTokenAccount(
-    banksClient,
-    poolState.quoteVault
-  );
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
-
   const tokenQuoteProgram =
     configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
 
-  const preInstructions: TransactionInstruction[] = [];
-  const [
-    { ata: tokenBaseAccount, ix: createBaseTokenAccountIx },
-    { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx },
-  ] = await Promise.all([
-    getOrCreateAssociatedTokenAccount(
-      banksClient,
-      operator,
-      poolState.baseMint,
-      TREASURY,
-      tokenBaseProgram
-    ),
-    getOrCreateAssociatedTokenAccount(
-      banksClient,
-      operator,
-      quoteMintInfo.mint,
-      TREASURY,
-      tokenQuoteProgram
-    ),
-  ]);
-  createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
-  createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
-
-  const tokenQuoteAccountState = await getTokenAccount(
-    banksClient,
-    tokenQuoteAccount
-  );
-  const preQuoteTokenBalance = tokenQuoteAccountState
-    ? tokenQuoteAccountState.amount
-    : 0;
+  const maxAmount =
+    params.maxAmount ??
+    getClaimableProtocolAmount(poolState, configState, isTokenBase);
 
   const transaction = await program.methods
-    .claimProtocolFee()
+    .claimProtocolFee2(maxAmount)
     .accountsPartial({
       poolAuthority,
       config: poolState.config,
       pool,
+      receiverTokenAccount,
       baseVault: poolState.baseVault,
       quoteVault: poolState.quoteVault,
       baseMint: poolState.baseMint,
-      quoteMint: quoteMintInfo.mint,
-      tokenBaseAccount,
-      tokenQuoteAccount,
-      claimFeeOperator,
-      operator: operator.publicKey,
+      quoteMint: configState.quoteMint,
+      signer: signerKP.publicKey,
       tokenBaseProgram,
       tokenQuoteProgram,
     })
-    .preInstructions(preInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(operator);
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  //
-  const quoteTokenBalance = (
-    await getTokenAccount(banksClient, tokenQuoteAccount)
-  ).amount;
-  const baseTokenBalance = (
-    await getTokenAccount(banksClient, tokenBaseAccount)
-  ).amount;
-  expect(
-    (Number(quoteTokenBalance) - Number(preQuoteTokenBalance)).toString()
-  ).eq(totalQuoteProtocolFee.toString());
-  expect(Number(baseTokenBalance).toString()).eq(
-    totalBaseProtocolFee.toString()
-  );
-}
-
-export type ProtocolWithdrawSurplusParams = {
-  operator: Keypair;
-  virtualPool: PublicKey;
-};
-export async function protocolWithdrawSurplus(
-  banksClient: BanksClient,
-  program: VirtualCurveProgram,
-  params: ProtocolWithdrawSurplusParams
-): Promise<any> {
-  const { operator, virtualPool } = params;
-  const poolState = await getVirtualPool(banksClient, program, virtualPool);
-  const poolAuthority = derivePoolAuthority();
-  const quoteMintInfo = await getTokenAccount(
-    banksClient,
-    poolState.quoteVault
-  );
-
-  const preInstructions: TransactionInstruction[] = [];
-  const { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
-    await getOrCreateAssociatedTokenAccount(
-      banksClient,
-      operator,
-      quoteMintInfo.mint,
-      TREASURY,
-      TOKEN_PROGRAM_ID
-    );
-  createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
-
-  const transaction = await program.methods
-    .protocolWithdrawSurplus()
-    .accountsPartial({
-      poolAuthority,
-      config: poolState.config,
-      virtualPool,
-      quoteVault: poolState.quoteVault,
-      quoteMint: quoteMintInfo.mint,
-      tokenQuoteAccount,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
-    })
-    .preInstructions(preInstructions)
-    .transaction();
-
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(operator);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [signerKP]);
 }

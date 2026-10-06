@@ -21,6 +21,166 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## dynamic_bonding_curve [0.2.2] [PR #211](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/211)
+
+### Added
+
+- Added support for creating base mints with a transfer fee. The fee is configured per config through the optional `transfer_fee_parameters` argument in `create_config2`.
+- Added support for quote mints with a non-zero transfer fee using a token badge through `create_config2`. Previously a token badge only allowed a zero transfer fee.
+- Added permissionless support for quote mints with a `TransferFeeConfig` whose fee is zero and whose transfer fee config authority is revoked.
+- Added support for a zero `compounding_fee_bps` with `MigratedCollectFeeMode::Compounding` when migrating to DAMMv2.
+- Added endpoint `create_config2` that takes the new optional `TransferFeeParameters` argument. Passing `None` is the same as passing the default parameters, which is no base transfer fee. It emits the new `EvtCreateConfig3` event and the `EvtCreateConfigV2` event. When there is a base transfer fee or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the config is restricted to a constant token supply (fixed token supply and `pre_migration_token_supply` equals `post_migration_token_supply`), no locked vesting, `MigrationFeeOption::Customizable`, and `MigratedCollectFeeMode::Compounding`.
+- Emit new events `EvtSwap3` and `EvtSwap3WithTransferHook` in swap endpoints. They report `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
+
+### Changed
+
+- Endpoints that transfer quote tokens (`claim_trading_fee`, `claim_trading_fee2`, `claim_creator_trading_fee`, `claim_creator_trading_fee2`, `claim_protocol_fee2`, `partner_withdraw_surplus`, `creator_withdraw_surplus`, `withdraw_migration_fee`, `migration_damm_v2`) no longer reject a non-zero transfer fee.
+- Endpoints `create_config` and `create_config_with_transfer_hook` reject a quote mint with a non-zero transfer fee or a live transfer fee config authority with the error `QuoteMintHasNonZeroTransferFee`, even with a token badge. Such a quote mint is only accepted by `create_config2`. Previously a badged quote mint with a `TransferFeeConfig` extension and a zero fee was accepted by these endpoints.
+- Legacy `EvtSwap.params` reports the amounts including the transfer fee. `EvtSwap.params.amount_in` equals `EvtSwap3.included_transfer_fee_amount_in` in every swap mode. `EvtSwap.params.minimum_amount_out` equals `EvtSwap3.excluded_transfer_fee_amount_out` for `ExactOut` and `PartialFill`, and is the user's `minimum_amount_out` for `ExactIn`.
+- Swap endpoints account for the transfer fee on either mint: the curve uses the amount received after the fee, `minimum_amount_out` is checked against the amount the user receives after the fee, and `maximum_amount_in` is checked against the amount the user pays before the fee.
+- When there is a base transfer fee, or the quote mint has a non-zero transfer fee or a live transfer fee config authority, the endpoint `migration_damm_v2` deposits the transfer-fee-excluded amounts of both mints. Such a config always migrates in compounding mode, where the side with the smaller transfer fee is scaled down by the same ratio to keep the migration price. The initial liquidity of the migrated pool is reduced by the larger of the two transfer fees. The budget of the scaled-down side that is not deposited stays in the vault and is added to `protocol_migration_base_fee_amount` or `protocol_migration_quote_fee_amount`, claimable through `claim_protocol_fee2`.
+- When a transfer fee is involved, the endpoint `migration_damm_v2` makes a single transfer per mint. The whole migrated liquidity is deposited into the first position, and the second position is carved out of it with `split_position2`, which moves liquidity between positions without transferring tokens. Each mint therefore pays its transfer fee once instead of once per position so more of the budget reaches the migrated pool.
+- For the compounding migrated fee mode, config creation validates the initial liquidity with the base transfer fee and the quote mint transfer fee of the current epoch applied. This approximates the amounts `migration_damm_v2` deposits.
+- Endpoint `withdraw_leftover` requires the signature of `leftover_receiver` when the transfer fee on the leftover is non-zero. The endpoint stays permissionless when the transfer fee is zero.
+- Endpoint `create_config` emits the new `EvtCreateConfig3` event in addition to `EvtCreateConfigV2`. Endpoint `create_config2` emits the same pair, so an indexer that follows only one of the two events sees every config from these two endpoints. Endpoint `create_config_with_transfer_hook` still emits only `EvtCreateConfigV2WithTransferHook`.
+
+### Deprecated
+
+- Deprecated `create_config` endpoint in favour of `create_config2`.
+- Deprecated `EvtCreateConfigV2` event in favour of `EvtCreateConfig3`.
+
+### Removed
+
+- Removed the deprecated `EvtCreateConfig` event. The `create_config` endpoint no longer emits the event. Indexers must consume `EvtCreateConfigV2` or `EvtCreateConfig3`.
+
+### Breaking Changes
+
+- Removed the deprecated `EvtCreateConfig` event. An indexer that consumes it must switch to `EvtCreateConfigV2` or `EvtCreateConfig3`.
+- Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` take new `current_epoch: u64`, `base_mint_transfer_fee_config: Option<&TransferFeeConfig>` and `quote_mint_transfer_fee_config: Option<&TransferFeeConfig>` parameters.
+- Rust SDK: `quote_exact_in`, `quote_exact_out`, and `quote_partial_fill` return `SwapResultWithTransferFee` instead of `SwapResult2`. `SwapResultWithTransferFee` contains `swap_result: SwapResult2`, `included_transfer_fee_amount_in` and `excluded_transfer_fee_amount_out`.
+
+## dynamic_bonding_curve [0.2.1] [PR #202](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/202)
+
+### Added
+
+- Added endpoints `create_token_badge` and `close_token_badge` for operators to whitelist quote mints with otherwise-unsupported token2022 extensions guarded by new `OperatorPermission::CreateTokenBadge` and `OperatorPermission::CloseTokenBadge`.
+- Note that a token badge does not allow a non-zero transfer fee: the current and any scheduled `transfer_fee_basis_points` must be 0. Expired historical `older_transfer_fee` transfer fees are ignored. This is enforced with `QuoteMintHasNonZeroTransferFee` at token badge creation, at config/pool creation and on every endpoint that transfers quote tokens.
+- Note that all DAMM v2 configs used by DBC have the `CreatePoolWithoutMintValidation` permission, so a pool with a quote mint that is not permissionless-supported by DAMM v2 can still migrate.
+
+### Changed
+
+- The endpoints `create_config`, `create_config_with_transfer_hook`, `initialize_virtual_pool_with_spl_token`, `initialize_virtual_pool_with_token2022` and `initialize_virtual_pool_with_token2022_transfer_hook` now take the `token_badge` account as a remaining account at index 0. Required when the quote mint is not permissionless-supported.
+
+### Deprecated
+
+- Deprecated `BaseFeeMode::RateLimiter`. New configs and new pools can no longer be created with `BaseFeeMode::RateLimiter`. Existing configs with `BaseFeeMode::RateLimiter` can no longer be used to create new pools. Existing pools with `BaseFeeMode::RateLimiter` are unaffected.
+- Deprecated `MigrationOption::MeteoraDamm`. New configs and new pools can no longer be created with `MigrationOption::MeteoraDamm`. Existing configs with `MigrationOption::MeteoraDamm` can no longer be used to create new pools. Existing pools with `MigrationOption::MeteoraDamm` are unaffected and can still migrate to DAMM v1.
+
+### Removed
+
+- Removed deprecated endpoints `claim_protocol_fee` and `zap_protocol_fee`.
+
+## dynamic_bonding_curve [0.2.0] [PR #193](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/193)
+
+### Added
+
+- Added an endpoint `claim_protocol_fee2` that requires `protocol_fee_authority` as the signer instead of an operator. Only one of the pool tokens can be claimed per instruction call.
+- Added endpoint `create_config_with_transfer_hook` that creates a `ConfigWithTransferHook` account storing the transfer hook program alongside the pool config. Only valid for `token_type: Token2022`. The transfer hook program must be executable and cannot be the program itself.
+- Added endpoint `initialize_virtual_pool_with_token2022_transfer_hook` for creating virtual pools with token-2022 base mints that have transfer hooks. The transfer hook program is sourced from the `ConfigWithTransferHook` account and the transfer hook authority is set to the `pool_authority`. The transfer hook program and authority is revoked after the last swap when the curve completes.
+- Added endpoints with transfer hook support: `swap2_with_transfer_hook`, `claim_trading_fee2` and `claim_creator_trading_fee2`. These accept a `transfer_hook_accounts_info: TransferHookAccountsInfo` parameter for passing transfer hook extra accounts via remaining accounts. The original endpoints are unchanged for backwards compatibility with non-transfer-hook pools.
+- Added `WithTransferHook` event variants for events consumed by external indexers to differentiate between transfer-hook and non-transfer-hook pool operations: `EvtInitializePoolWithTransferHook`, `EvtSwap2WithTransferHook`, `EvtCurveCompleteWithTransferHook`, `EvtCreateConfigV2WithTransferHook`.
+- Re-enabled `TokenAuthorityOption::CreatorUpdateAndMintAuthority` and `TokenAuthorityOption::PartnerUpdateAndMintAuthority` for transfer-hook configs only. The mint authority is assigned to the creator or partner at pool initialization.
+
+### Changed
+
+- Update anchor to 1.0.2
+
+### Deprecated
+
+- Deprecated `claim_protocol_fee` and `zap_protocol_fee` endpoints in favour of using `claim_protocol_fee2` through the `protocol_fee` wrapper program.
+- Deprecated `TokenAuthorityOption::CreatorUpdateAndMintAuthority` and `TokenAuthorityOption::PartnerUpdateAndMintAuthority` for non-transfer-hook configs.
+
+### Removed
+
+- Removed unused events: `EvtPartnerWithdrawMigrationFee` and `EvtClaimProtocolLiquidityMigrationFee`
+
+### Breaking Changes
+
+- `create_config` endpoint now rejects the configs with the following `token_update_authority`: `CreatorUpdateAndMintAuthority` and `PartnerUpdateAndMintAuthority`
+- `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` endpoints now reject configs whose `token_update_authority` is `CreatorUpdateAndMintAuthority` or `PartnerUpdateAndMintAuthority`. Existing configs on-chain that used these variants can no longer initialize new pools.
+- For non-transfer-hook pools, `base_mint` mint authority can no longer be assigned to the creator or partner. It is always revoked at pool initialization. Transfer-hook pools may still assign mint authority to creator/partner.
+
+## dynamic_bonding_curve [0.1.10] [PR #174](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/174)
+
+### Added
+
+- Add new endpoint `create_operator_account` and `close_operator_account` that allows admin to manage different operator accounts.
+- Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
+- Add new endpoint `zap_protocol_fee` that allow operator to claim protocol fees and zap out to SOL/USDC or other token in pool and send to treasury address
+- Add support for damm-v2 Compounding `collect_fee_mode`. This can be enabled through the `create_config` endpoint by passing `migrated_pool_fee.collect_fee_mode: 2` and `compounding_fee_bps: 1-10_000` field in `ConfigParameters`
+
+### Changed
+
+- When migrate to damm-v2, instead of using external accounts for vesting, now we will use position itself, that would save 2 accounts for damm-v2 migration instruction.
+
+### Removed
+
+- Removed the `create_claim_protocol_fee_operator` endpoint in favor of `create_operator_account`, which can create an operator account configured with permissions, including claiming protocol fees.
+
+## dynamic_bonding_curve [0.1.9] [PR #165](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/165)
+
+### Added
+
+- Added 2 new field `migrated_pool_base_fee_mode` and `MigratedPoolMarketCapFeeSchedulerParams` in `create_config` endpoint to allow user to create config with DAMM v2 migration with market cap fee scheduler.
+- Added field `enable_first_swap_with_min_fee` in `create_config` endpoint to allow user to initialize pool and swap in single transaction without any anti sniper suite fee.
+
+### Changed
+
+- Endpoint `swap` and `swap2` require sysvar instruction account to be passed in remaining accounts if the config have `enable_first_swap_with_min_fee` as `true` to enjoy minimum swap fee. Else, it will charge normal fee.
+- Standalize error code for quoting in swap exact in and swap exact out when bonding curve is not enough liquidity.
+- Charge protocol migration fee upon migration. It take a cut from liquidity to be migrated to.
+
+### Removed
+
+- Remove endpoint `protocol_withdraw_surplus`, and merge surplus claiming to endpoint `claim_protocol_fee`
+- Remove endpoint `claim_legacy_pool_creation_fee`, and merge `legacy_pool_creation_fee` to endpoint `claim_protocol_pool_creation_fee`
+
+### Breaking Changes
+
+- Add `fee_receiver` field to event `EvtPartnerClaimPoolCreationFee`.
+- Endpoint `claim_protocol_fee` add new params `max_base_amount` and `max_quote_amount`
+- Remove endpoint `protocol_withdraw_surplus`, surplus amount will be merged in endpoint `claim_protocol_fee`
+
+## dynamic_bonding_curve [0.1.8] [PR #151](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/151)
+
+### Added
+
+- Add new endpoint `claim_partner_pool_creation_fee` to allow partners to withdraw the pool creation fee.
+- Add new endpoint `claim_protocol_pool_creation_fee` to allow protocol to withdraw the pool creation fee.
+- `PoolConfig` account now stores `creator_lp_vesting_info` and `partner_lp_vesting_info` fields. Only applicable to DAMM v2 migration option. It store vesting parameters required for `lock_position` cpi during DAMM v2 migration.
+
+### Changed
+
+- Allow partners to configure the `pool_creation_fee` when creating a config. The value is in SOL lamport, so when token creator create pool (throught endpoint `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022`), they would need to pay `pool_creation_fee` in SOL lamport. Later partner would be able to claim that fee (Meteora would take 10% from that fee)
+- Allow partners to config `partner_lp_vesting_info` and `creator_lp_vesting_info` when creating config key that includes liquidity vesting information if pool is migrated to damm v2 later
+
+### Removed
+
+- Removed the legacy pool creation fee logic from the `initialize_virtual_pool_with_token2022` endpoint.
+- Removed `protocol_fee_percentage` and `referral_fee_percentage` fields from `PoolFeesConfig` field from `PoolConfig` account. Will be using defined constant `PROTOCOL_FEE_PERCENTAGE` and `HOST_FEE_PERCENTAGE` as replacement.
+
+### Breaking Changes
+
+- Endpoints: `create_config`, `initialize_virtual_pool_with_spl_token` and `initialize_virtual_pool_with_token2022` will only allow config that has minimum 10% of locked liquidity in at least 1 day
+- `migration_damm_v2` endpoint require `vesting` accounts for `first_position` and `second_position` if LP vesting was configured.
+
+All breaking belows are related to admin/operator functions
+
+- Remove endpoint `withdraw_lamports_from_pool_authority`
+- Change endpoint `claim_pool_creation_fee` to new endpoint `claim_legacy_pool_creation_fee`
+- Add new `payer` account in admin endpoint `create_claim_fee_operator`, that allow to payer to pay rent fee, instead of admin
+- Add new accounts `signer` and `claim_fee_operator` in endpoint `protocol_withdraw_surplus`, move the endpoint to permissioned
+
 ## dynamic_bonding_curve [0.1.7] [PR #129](https://github.com/MeteoraAg/dynamic-bonding-curve/pull/129)
 
 ### Changed
@@ -82,6 +242,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a new field `base_fee_mode` in base fee state, that indicates whether the base fee is fee scheduler or rate limiter
 
 ### Breaking Changes
+
 - Update max fee to 99%
 - In swap instruction, if rate limiter is enable, user need to submit `instruction_sysvar_account` in remaining account, otherwise transaction will be failed
 - Quote function can be changed by rate limiter and updated max fee

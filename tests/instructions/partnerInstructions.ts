@@ -1,32 +1,34 @@
+import { BN } from "@anchor-lang/core";
+import {
+  NATIVE_MINT,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import {
   Keypair,
   PublicKey,
   SystemProgram,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
-import { VirtualCurveProgram } from "../utils/types";
-import { BanksClient } from "solana-bankrun";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
-  derivePoolAuthority,
-  processTransactionMaybeThrow,
-  getOrCreateAssociatedTokenAccount,
-  unwrapSOLInstruction,
-  getTokenAccount,
+  createVirtualCurveProgram,
   derivePartnerMetadata,
+  derivePoolAuthority,
+  getOrCreateAssociatedTokenAccount,
+  getTokenAccount,
   getTokenProgram,
+  sendTransactionMaybeThrow,
+  unwrapSOLInstruction,
 } from "../utils";
 import {
   getConfig,
   getPartnerMetadata,
   getVirtualPool,
 } from "../utils/fetcher";
-import { expect } from "chai";
-import {
-  NATIVE_MINT,
-  TOKEN_2022_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+import { getRemainingAccountsForTransferHook } from "../utils/token";
+import { VirtualCurveProgram } from "../utils/types";
 
 export type BaseFee = {
   cliffFeeNumerator: BN;
@@ -64,12 +66,17 @@ export type LiquidityDistributionParameters = {
   liquidity: BN;
 };
 
-
 export type MigrationFeeParams = {
   feePercentage: number;
   creatorFeePercentage: number;
 };
 
+export type MigratedPoolMarketCapFeeSchedulerParams = {
+  numberOfPeriod: number;
+  sqrtPriceStepBps: number;
+  schedulerExpirationDuration: number;
+  reductionFactor: BN;
+};
 
 export type ConfigParameters = {
   poolFees: {
@@ -82,10 +89,10 @@ export type ConfigParameters = {
   tokenType: number;
   tokenDecimal: number;
   migrationQuoteThreshold: BN;
-  partnerLpPercentage: number;
-  partnerLockedLpPercentage: number;
-  creatorLpPercentage: number;
-  creatorLockedLpPercentage: number;
+  partnerLiquidityPercentage: number;
+  partnerPermanentLockedLiquidityPercentage: number;
+  creatorLiquidityPercentage: number;
+  creatorPermanentLockedLiquidityPercentage: number;
   sqrtStartPrice: BN;
   lockedVesting: LockedVestingParams;
   migrationFeeOption: number;
@@ -97,30 +104,57 @@ export type ConfigParameters = {
     poolFeeBps: number;
     collectFeeMode: number;
     dynamicFee: number;
-  },
-  padding: BN[];
+  };
+  poolCreationFee: BN;
+  migratedPoolBaseFeeMode: number;
+  migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams | null;
+  partnerLiquidityVestingInfo: LiquidityVestingInfoParams;
+  creatorLiquidityVestingInfo: LiquidityVestingInfoParams;
+  enableFirstSwapWithMinFee: boolean;
+  compoundingFeeBps: number;
   curve: Array<LiquidityDistributionParameters>;
 };
 
-export type CreateConfigParams = {
+export type LiquidityVestingInfoParams = {
+  vestingPercentage: number;
+  cliffDurationFromMigrationTime: number;
+  bpsPerPeriod: number;
+  frequency: number;
+  numberOfPeriods: number;
+};
+
+export type CreateConfigParams<T> = {
   payer: Keypair;
   leftoverReceiver: PublicKey;
   feeClaimer: PublicKey;
   quoteMint: PublicKey;
-  instructionParams: ConfigParameters;
+  instructionParams: T;
+  tokenBadge?: PublicKey;
 };
 
 export async function createConfig(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
-  params: CreateConfigParams
+  params: CreateConfigParams<ConfigParameters>
 ): Promise<PublicKey> {
   const { payer, leftoverReceiver, feeClaimer, quoteMint, instructionParams } =
     params;
   const config = Keypair.generate();
 
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
   const transaction = await program.methods
-    .createConfig(instructionParams)
+    .createConfig({
+      ...instructionParams,
+      padding: new Array(2).fill(0),
+    })
     .accountsPartial({
       config: config.publicKey,
       feeClaimer,
@@ -128,34 +162,163 @@ export async function createConfig(
       quoteMint,
       payer: payer.publicKey,
     })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, config);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
   //
-  const configState = await getConfig(banksClient, program, config.publicKey);
+  const configState = getConfig(svm, program, config.publicKey);
   // TODO add assertion data fields
   expect(configState.quoteMint.toString()).equal(quoteMint.toString());
-  expect(configState.partnerLpPercentage).equal(
-    instructionParams.partnerLpPercentage
+  expect(configState.partnerLiquidityPercentage).equal(
+    instructionParams.partnerLiquidityPercentage
   );
-  expect(configState.partnerLockedLpPercentage).equal(
-    instructionParams.partnerLockedLpPercentage
+  expect(configState.partnerPermanentLockedLiquidityPercentage).equal(
+    instructionParams.partnerPermanentLockedLiquidityPercentage
   );
-  expect(configState.creatorLpPercentage).equal(
-    instructionParams.creatorLpPercentage
+  expect(configState.creatorLiquidityPercentage).equal(
+    instructionParams.creatorLiquidityPercentage
   );
-  expect(configState.creatorLockedLpPercentage).equal(
-    instructionParams.creatorLockedLpPercentage
+  expect(configState.creatorPermanentLockedLiquidityPercentage).equal(
+    instructionParams.creatorPermanentLockedLiquidityPercentage
   );
 
   return config.publicKey;
 }
 
+export type TransferFeeParameters = {
+  transferFeeBasisPoints: number;
+  /// 0 partner (fee claimer), 1 creator
+  withheldAuthority: number;
+  /// What happens to the transfer fee config authority at migration.
+  /// 0 immutable fee, 1 revoke and zero the fee, 2 creator, 3 partner
+  migratedTransferFeeAuthorityOption: number;
+};
+
+export type CreateConfig2Params = CreateConfigParams<ConfigParameters> & {
+  transferFee: TransferFeeParameters;
+};
+
+export async function createConfig2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfig2Params
+): Promise<PublicKey> {
+  const {
+    payer,
+    leftoverReceiver,
+    feeClaimer,
+    quoteMint,
+    instructionParams,
+    transferFee,
+  } = params;
+  const config = Keypair.generate();
+
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
+  const transaction = await program.methods
+    .createConfig2(
+      {
+        ...instructionParams,
+        padding: new Array(2).fill(0),
+      },
+      transferFee
+    )
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      payer: payer.publicKey,
+    })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+
+  const configState = getConfig(svm, program, config.publicKey);
+  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
+  expect(configState.transferFeeBasisPoints).equal(
+    transferFee.transferFeeBasisPoints
+  );
+
+  return config.publicKey;
+}
+
+export type CreateConfigWithTransferHookParams =
+  CreateConfigParams<ConfigParameters> & {
+    transferHookProgram: PublicKey;
+  };
+
+export async function createConfigWithTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: CreateConfigWithTransferHookParams
+): Promise<PublicKey> {
+  const {
+    payer,
+    leftoverReceiver,
+    feeClaimer,
+    quoteMint,
+    instructionParams,
+    transferHookProgram,
+  } = params;
+  const config = Keypair.generate();
+
+  if (instructionParams.migratedPoolMarketCapFeeSchedulerParams == null) {
+    instructionParams.migratedPoolMarketCapFeeSchedulerParams = {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    };
+  }
+
+  const transaction = await program.methods
+    .createConfigWithTransferHook({
+      ...instructionParams,
+      padding: new Array(2).fill(0),
+    })
+    .accountsPartial({
+      config: config.publicKey,
+      feeClaimer,
+      leftoverReceiver,
+      quoteMint,
+      transferHookProgram,
+      payer: payer.publicKey,
+    })
+    .remainingAccounts(
+      params.tokenBadge
+        ? [{ pubkey: params.tokenBadge, isSigner: false, isWritable: false }]
+        : []
+    )
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [payer, config]);
+
+  const configState = getConfig(svm, program, config.publicKey);
+  expect(configState.quoteMint.toString()).equal(quoteMint.toString());
+
+  return config.publicKey;
+}
+
 export async function createPartnerMetadata(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: {
     name: string;
@@ -182,16 +345,9 @@ export async function createPartnerMetadata(
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, feeClaimer);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [payer, feeClaimer]);
   //
-  const metadataState = await getPartnerMetadata(
-    banksClient,
-    program,
-    partnerMetadata
-  );
+  const metadataState = getPartnerMetadata(svm, program, partnerMetadata);
   expect(metadataState.feeClaimer.toString()).equal(
     feeClaimer.publicKey.toString()
   );
@@ -207,19 +363,16 @@ export type ClaimTradeFeeParams = {
   maxQuoteAmount: BN;
 };
 export async function claimTradingFee(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: ClaimTradeFeeParams
 ): Promise<any> {
   const { feeClaimer, pool, maxBaseAmount, maxQuoteAmount } = params;
-  const poolState = await getVirtualPool(banksClient, program, pool);
-  const configState = await getConfig(banksClient, program, poolState.config);
+  const poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, poolState.config);
   const poolAuthority = derivePoolAuthority();
 
-  const quoteMintInfo = await getTokenAccount(
-    banksClient,
-    poolState.quoteVault
-  );
+  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
 
   const tokenBaseProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -232,22 +385,22 @@ export async function claimTradingFee(
   const [
     { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
     { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
-  ] = await Promise.all([
+  ] = [
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       feeClaimer,
       poolState.baseMint,
       feeClaimer.publicKey,
       tokenBaseProgram
     ),
     getOrCreateAssociatedTokenAccount(
-      banksClient,
+      svm,
       feeClaimer,
       quoteMintInfo.mint,
       feeClaimer.publicKey,
       tokenQuoteProgram
     ),
-  ]);
+  ];
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
@@ -275,9 +428,79 @@ export async function claimTradingFee(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(feeClaimer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
+}
+
+export async function claimTradingFee2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: ClaimTradeFeeParams
+) {
+  const { feeClaimer, pool, maxBaseAmount, maxQuoteAmount } = params;
+  const poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, poolState.config);
+  const poolAuthority = derivePoolAuthority();
+  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
+
+  const tokenBaseProgram =
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+  const tokenQuoteProgram =
+    configState.quoteTokenFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+
+  const preInstructions: TransactionInstruction[] = [];
+  const postInstructions: TransactionInstruction[] = [];
+  const [
+    { ata: baseTokenAccount, ix: createBaseTokenAccountIx },
+    { ata: quoteTokenAccount, ix: createQuoteTokenAccountIx },
+  ] = [
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      feeClaimer,
+      poolState.baseMint,
+      feeClaimer.publicKey,
+      tokenBaseProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      feeClaimer,
+      quoteMintInfo.mint,
+      feeClaimer.publicKey,
+      tokenQuoteProgram
+    ),
+  ];
+  createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
+  createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
+
+  if (configState.quoteMint == NATIVE_MINT) {
+    const unrapSOLIx = unwrapSOLInstruction(feeClaimer.publicKey);
+    unrapSOLIx && postInstructions.push(unrapSOLIx);
+  }
+
+  const { info: transferHookAccountsInfo, accounts: transferHookAccounts } =
+    await getRemainingAccountsForTransferHook(svm, program, pool);
+
+  const transaction = await program.methods
+    .claimTradingFee2(maxBaseAmount, maxQuoteAmount, transferHookAccountsInfo)
+    .accountsPartial({
+      poolAuthority,
+      config: poolState.config,
+      pool,
+      tokenAAccount: baseTokenAccount,
+      tokenBAccount: quoteTokenAccount,
+      baseVault: poolState.baseVault,
+      quoteVault: poolState.quoteVault,
+      baseMint: poolState.baseMint,
+      quoteMint: quoteMintInfo.mint,
+      feeClaimer: feeClaimer.publicKey,
+      tokenBaseProgram,
+      tokenQuoteProgram,
+    })
+    .remainingAccounts(transferHookAccounts)
+    .preInstructions(preInstructions)
+    .postInstructions(postInstructions)
+    .transaction();
+
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
 }
 
 export type PartnerWithdrawSurplusParams = {
@@ -285,28 +508,27 @@ export type PartnerWithdrawSurplusParams = {
   virtualPool: PublicKey;
 };
 export async function partnerWithdrawSurplus(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: PartnerWithdrawSurplusParams
 ): Promise<any> {
   const { feeClaimer, virtualPool } = params;
-  const poolState = await getVirtualPool(banksClient, program, virtualPool);
+  const poolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, poolState.config);
+  const tokenQuoteProgram = getTokenProgram(configState.quoteTokenFlag);
   const poolAuthority = derivePoolAuthority();
 
-  const quoteMintInfo = await getTokenAccount(
-    banksClient,
-    poolState.quoteVault
-  );
+  const quoteMintInfo = getTokenAccount(svm, poolState.quoteVault)!;
 
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
   const { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
-    await getOrCreateAssociatedTokenAccount(
-      banksClient,
+    getOrCreateAssociatedTokenAccount(
+      svm,
       feeClaimer,
       quoteMintInfo.mint,
       feeClaimer.publicKey,
-      TOKEN_PROGRAM_ID
+      tokenQuoteProgram
     );
 
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
@@ -326,28 +548,27 @@ export async function partnerWithdrawSurplus(
       quoteVault: poolState.quoteVault,
       quoteMint: quoteMintInfo.mint,
       feeClaimer: feeClaimer.publicKey,
-      tokenQuoteProgram: TOKEN_PROGRAM_ID,
+      tokenQuoteProgram,
     })
     .preInstructions(preInstructions)
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(feeClaimer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
 }
 
 export async function withdrawLeftover(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: {
     payer: Keypair;
     virtualPool: PublicKey;
+    leftoverReceiver?: Keypair;
   }
 ): Promise<any> {
-  const { payer, virtualPool } = params;
-  const poolState = await getVirtualPool(banksClient, program, virtualPool);
-  const configState = await getConfig(banksClient, program, poolState.config);
+  const { payer, virtualPool, leftoverReceiver } = params;
+  const poolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, poolState.config);
   const poolAuthority = derivePoolAuthority();
 
   const tokenBaseProgram =
@@ -355,16 +576,15 @@ export async function withdrawLeftover(
 
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
-  const [{ ata: tokenBaseAccount, ix: createBaseTokenAccountIx }] =
-    await Promise.all([
-      getOrCreateAssociatedTokenAccount(
-        banksClient,
-        payer,
-        poolState.baseMint,
-        configState.leftoverReceiver,
-        tokenBaseProgram
-      ),
-    ]);
+  const { ata: tokenBaseAccount, ix: createBaseTokenAccountIx } =
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      payer,
+      poolState.baseMint,
+      configState.leftoverReceiver,
+      tokenBaseProgram
+    );
+
   createBaseTokenAccountIx && preInstructions.push(createBaseTokenAccountIx);
   const transaction = await program.methods
     .withdrawLeftover()
@@ -382,9 +602,8 @@ export async function withdrawLeftover(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  const signers = leftoverReceiver ? [payer, leftoverReceiver] : [payer];
+  sendTransactionMaybeThrow(svm, transaction, signers);
 }
 
 export type PartnerWithdrawMigrationFeeParams = {
@@ -392,20 +611,20 @@ export type PartnerWithdrawMigrationFeeParams = {
   virtualPool: PublicKey;
 };
 export async function partnerWithdrawMigrationFee(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   params: PartnerWithdrawMigrationFeeParams
 ): Promise<void> {
   const { partner, virtualPool } = params;
   const poolAuthority = derivePoolAuthority();
-  const poolState = await getVirtualPool(banksClient, program, virtualPool);
-  const configState = await getConfig(banksClient, program, poolState.config);
+  const poolState = getVirtualPool(svm, program, virtualPool);
+  const configState = getConfig(svm, program, poolState.config);
 
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
   const { ata: tokenQuoteAccount, ix: createQuoteTokenAccountIx } =
-    await getOrCreateAssociatedTokenAccount(
-      banksClient,
+    getOrCreateAssociatedTokenAccount(
+      svm,
       partner,
       configState.quoteMint,
       partner.publicKey,
@@ -435,7 +654,25 @@ export async function partnerWithdrawMigrationFee(
     .postInstructions(postInstructions)
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(partner);
-  await processTransactionMaybeThrow(banksClient, transaction);
+  sendTransactionMaybeThrow(svm, transaction, [partner]);
+}
+
+export async function claimPartnerPoolCreationFee(
+  svm: LiteSVM,
+  feeClaimer: Keypair,
+  config: PublicKey,
+  virtualPool: PublicKey,
+  feeReceiver: PublicKey
+) {
+  const program = createVirtualCurveProgram();
+  const transaction = await program.methods
+    .claimPartnerPoolCreationFee()
+    .accountsPartial({
+      config,
+      pool: virtualPool,
+      feeClaimer: feeClaimer.publicKey,
+      feeReceiver,
+    })
+    .transaction();
+  sendTransactionMaybeThrow(svm, transaction, [feeClaimer]);
 }

@@ -27,3 +27,24 @@ mod test_inverse_fee;
 
 #[cfg(test)]
 mod test_math_utils;
+
+#[cfg(test)]
+mod test_dammv2_vesting_params;
+
+#[cfg(test)]
+mod test_migration_fee;
+
+#[cfg(test)]
+mod test_operator_permission;
+
+#[cfg(test)]
+mod test_safe_math;
+
+#[cfg(test)]
+mod test_const_pda;
+
+#[cfg(test)]
+mod test_fee_mode;
+
+#[cfg(test)]
+mod test_activation_handler;

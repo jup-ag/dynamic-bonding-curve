@@ -1,5 +1,3 @@
-use std::u64;
-
 use crate::{
     const_pda,
     state::{MigrationProgress, VirtualPool},
@@ -20,7 +18,7 @@ pub struct MigrateMeteoraDammClaimLpTokenCtx<'info> {
         mut,
         address = const_pda::pool_authority::ID
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     /// CHECK: lp_mint
     pub lp_mint: UncheckedAccount<'info>,
@@ -86,7 +84,7 @@ pub fn handle_migrate_meteora_damm_claim_lp_token<'info>(
     let is_partner = ctx.accounts.owner.key() == migration_metadata.partner;
     let is_creator = ctx.accounts.owner.key() == virtual_pool.creator;
 
-    let lp_to_claim = match (is_partner, is_creator) {
+    let liquidity_token_to_claim = match (is_partner, is_creator) {
         (true, true) => migration_metadata.claim_as_self_partnered_creator()?,
         (true, false) => migration_metadata.claim_as_partner()?,
         (false, true) => migration_metadata.claim_as_creator()?,
@@ -94,5 +92,5 @@ pub fn handle_migrate_meteora_damm_claim_lp_token<'info>(
     };
 
     ctx.accounts
-        .transfer(const_pda::pool_authority::BUMP, lp_to_claim)
+        .transfer(const_pda::pool_authority::BUMP, liquidity_token_to_claim)
 }

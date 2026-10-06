@@ -1,32 +1,49 @@
 import {
+  ACCOUNT_SIZE,
+  ACCOUNT_TYPE_SIZE,
   AccountLayout,
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
-  createInitializeMintInstruction,
+  createInitializePermanentDelegateInstruction,
+  createInitializeTransferFeeConfigInstruction,
   createMintToInstruction,
+  createSetTransferFeeInstruction,
   createSyncNativeInstruction,
+  createTransferCheckedWithTransferHookInstruction,
   ExtensionType,
   getAssociatedTokenAddressSync,
   getMintLen,
+  getTransferHook,
+  LENGTH_SIZE,
+  MAX_FEE_BASIS_POINTS,
   MINT_SIZE,
   MintLayout,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  TransferFee,
+  TYPE_SIZE,
+  unpackMint,
 } from "@solana/spl-token";
 import {
+  Connection,
   Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
-import { BanksClient } from "solana-bankrun";
-// import { DECIMALS } from "./constants";
-// const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+import { expect } from "chai";
+import { LiteSVM, TransactionMetadata } from "litesvm";
+import {
+  AccountsType,
+  TransferHookAccountsInfo,
+  VirtualCurveProgram,
+} from "./types";
+import { getVirtualPool } from "./fetcher";
 
-export async function getOrCreateAssociatedTokenAccount(
-  banksClient: BanksClient,
+export function getOrCreateAssociatedTokenAccount(
+  svm: LiteSVM,
   payer: Keypair,
   mint: PublicKey,
   owner: PublicKey,
@@ -34,7 +51,7 @@ export async function getOrCreateAssociatedTokenAccount(
 ) {
   const ataKey = getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
 
-  const account = await banksClient.getAccount(ataKey);
+  const account = svm.getAccount(ataKey);
   if (account === null) {
     const createAtaIx = createAssociatedTokenAccountInstruction(
       payer.publicKey,
@@ -44,24 +61,23 @@ export async function getOrCreateAssociatedTokenAccount(
       tokenProgram
     );
     let transaction = new Transaction();
-    const [recentBlockhash] = await banksClient.getLatestBlockhash();
-    transaction.recentBlockhash = recentBlockhash;
+    transaction.recentBlockhash = svm.latestBlockhash();
     transaction.add(createAtaIx);
     transaction.sign(payer);
-    await banksClient.processTransaction(transaction);
+    svm.sendTransaction(transaction);
   }
 
   return ataKey;
 }
 
-export async function createToken(
-  banksClient: BanksClient,
+export function createToken(
+  svm: LiteSVM,
   payer: Keypair,
   mintAuthority: PublicKey,
-  decimal: number
-): Promise<PublicKey> {
+  decimal: number = 9
+): PublicKey {
   const mintKeypair = Keypair.generate();
-  const rent = await banksClient.getRent();
+  const rent = svm.getRent();
   const lamports = rent.minimumBalance(BigInt(MINT_SIZE));
 
   const createAccountIx = SystemProgram.createAccount({
@@ -80,23 +96,159 @@ export async function createToken(
   );
 
   let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.add(createAccountIx, initializeMintIx);
   transaction.sign(payer, mintKeypair);
 
-  await banksClient.processTransaction(transaction);
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
 
   return mintKeypair.publicKey;
 }
 
-export async function wrapSOL(
-  banksClient: BanksClient,
+export function createToken2022Mint(
+  svm: LiteSVM,
   payer: Keypair,
-  amount: BN
+  options: {
+    decimals?: number;
+    permanentDelegate?: PublicKey;
+    transferFeeConfig?: {
+      feeBasisPoints: number;
+      maximumFee: bigint;
+      // undefined uses the payer, null makes the fee immutable
+      transferFeeConfigAuthority?: PublicKey | null;
+    };
+  } = {}
+): PublicKey {
+  const { decimals = 9, permanentDelegate, transferFeeConfig } = options;
+  const mintKeypair = Keypair.generate();
+  const extensions = [];
+  if (permanentDelegate) {
+    extensions.push(ExtensionType.PermanentDelegate);
+  }
+  if (transferFeeConfig) {
+    extensions.push(ExtensionType.TransferFeeConfig);
+  }
+  const mintLen = getMintLen(extensions);
+  const rent = svm.getRent();
+  const lamports = rent.minimumBalance(BigInt(mintLen));
+
+  const transaction = new Transaction();
+  transaction.add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mintKeypair.publicKey,
+      space: mintLen,
+      lamports: Number(lamports.toString()),
+      programId: TOKEN_2022_PROGRAM_ID,
+    })
+  );
+  if (permanentDelegate) {
+    transaction.add(
+      createInitializePermanentDelegateInstruction(
+        mintKeypair.publicKey,
+        permanentDelegate,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  }
+  if (transferFeeConfig) {
+    transaction.add(
+      createInitializeTransferFeeConfigInstruction(
+        mintKeypair.publicKey,
+        transferFeeConfig.transferFeeConfigAuthority === undefined
+          ? payer.publicKey
+          : transferFeeConfig.transferFeeConfigAuthority,
+        transferFeeConfig.transferFeeConfigAuthority === undefined
+          ? payer.publicKey
+          : transferFeeConfig.transferFeeConfigAuthority,
+        transferFeeConfig.feeBasisPoints,
+        transferFeeConfig.maximumFee,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  }
+  transaction.add(
+    createInitializeMint2Instruction(
+      mintKeypair.publicKey,
+      decimals,
+      payer.publicKey,
+      null,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(payer, mintKeypair);
+
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
+
+  return mintKeypair.publicKey;
+}
+
+export function setTransferFee(
+  svm: LiteSVM,
+  payer: Keypair,
+  mint: PublicKey,
+  transferFeeConfigAuthority: Keypair,
+  feeBasisPoints: number,
+  maximumFee: bigint
 ) {
-  const solAta = await getOrCreateAssociatedTokenAccount(
-    banksClient,
+  const transaction = new Transaction();
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.add(
+    createSetTransferFeeInstruction(
+      mint,
+      transferFeeConfigAuthority.publicKey,
+      [],
+      feeBasisPoints,
+      maximumFee,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+  transaction.sign(payer, transferFeeConfigAuthority);
+
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
+}
+
+export function mintToken2022To(
+  svm: LiteSVM,
+  payer: Keypair,
+  mint: PublicKey,
+  mintAuthority: Keypair,
+  toWallet: PublicKey,
+  rawAmount: bigint | number
+) {
+  const destination = getOrCreateAssociatedTokenAccount(
+    svm,
+    payer,
+    mint,
+    toWallet,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  const mintIx = createMintToInstruction(
+    mint,
+    destination,
+    mintAuthority.publicKey,
+    rawAmount,
+    [],
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  const transaction = new Transaction();
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.add(mintIx);
+  transaction.sign(payer, mintAuthority);
+
+  const res = svm.sendTransaction(transaction);
+  expect(res).instanceOf(TransactionMetadata);
+}
+
+export function wrapSOL(svm: LiteSVM, payer: Keypair, amount: BN) {
+  const solAta = getOrCreateAssociatedTokenAccount(
+    svm,
     payer,
     NATIVE_MINT,
     payer.publicKey
@@ -111,24 +263,23 @@ export async function wrapSOL(
   const syncNativeIx = createSyncNativeInstruction(solAta);
 
   let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.add(solTransferIx, syncNativeIx);
   transaction.sign(payer);
 
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 }
 
-export async function mintSplTokenTo(
-  banksClient: BanksClient,
+export function mintSplTokenTo(
+  svm: LiteSVM,
   payer: Keypair,
   mint: PublicKey,
   mintAuthority: Keypair,
   toWallet: PublicKey,
   rawAmount: bigint | number
 ) {
-  const destination = await getOrCreateAssociatedTokenAccount(
-    banksClient,
+  const destination = getOrCreateAssociatedTokenAccount(
+    svm,
     payer,
     mint,
     toWallet
@@ -142,25 +293,173 @@ export async function mintSplTokenTo(
   );
 
   let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
+  transaction.recentBlockhash = svm.latestBlockhash();
   transaction.add(mintIx);
   transaction.sign(payer, mintAuthority);
-
-  await banksClient.processTransaction(transaction);
+  svm.sendTransaction(transaction);
 }
 
-export async function getMint(banksClient: BanksClient, mint: PublicKey) {
-  const account = await banksClient.getAccount(mint);
-  const mintState = MintLayout.decode(account.data);
+export function getMint(
+  svm: LiteSVM,
+  mint: PublicKey,
+  programId: PublicKey = TOKEN_PROGRAM_ID
+) {
+  const mintInfo = svm.getAccount(mint);
+  if (!mintInfo || !mintInfo.data.length) throw new Error("Invalid mint");
+
+  const mintState = unpackMint(
+    mint,
+    {
+      ...mintInfo,
+      data: Buffer.from(mintInfo.data),
+    },
+    programId
+  );
+
   return mintState;
 }
-
-export async function getTokenAccount(
-  banksClient: BanksClient,
-  key: PublicKey
-) {
-  const account = await banksClient.getAccount(key);
+export function getTokenAccount(svm: LiteSVM, key: PublicKey) {
+  const account = svm.getAccount(key);
   const tokenAccountState = AccountLayout.decode(account.data);
   return tokenAccountState;
+}
+
+export async function getExtraAccountMetasForTransferHook(
+  svm: LiteSVM,
+  mint: PublicKey
+) {
+  const connection: {
+    getAccountInfo: Connection["getAccountInfo"];
+    commitment: Connection["commitment"];
+  } = {
+    getAccountInfo: async (publicKey) => {
+      const info = svm.getAccount(publicKey);
+      if (!info) return null;
+      return { ...info, data: Buffer.from(info.data) };
+    },
+    commitment: "confirmed",
+  };
+
+  const mintInfo = svm.getAccount(mint);
+  if (!mintInfo) throw new Error("Invalid mint");
+  if (mintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+    return [];
+  }
+
+  const mintState = getMint(svm, mint, TOKEN_2022_PROGRAM_ID);
+  const transferHook = getTransferHook(mintState);
+
+  if (!transferHook || transferHook.programId.equals(PublicKey.default)) {
+    return [];
+  } else {
+    const transferWithHookIx =
+      await createTransferCheckedWithTransferHookInstruction(
+        connection as Connection,
+        PublicKey.default,
+        mint,
+        PublicKey.default,
+        PublicKey.default,
+        BigInt(0),
+        mintState.decimals,
+        [],
+        connection.commitment,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+    // Only 4 keys needed if it's single signer. https://github.com/solana-labs/solana-program-library/blob/d72289c79a04411c69a8bf1054f7156b6196f9b3/token/js/src/extensions/transferFee/instructions.ts#L251
+    return transferWithHookIx.keys.slice(4);
+  }
+}
+
+export async function getRemainingAccountsForTransferHook(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  pool: PublicKey,
+  accountTypes: (typeof AccountsType)[keyof typeof AccountsType][] = [
+    AccountsType.TransferHookBase,
+  ]
+): Promise<{
+  info: TransferHookAccountsInfo;
+  accounts: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[];
+}> {
+  const account = svm.getAccount(pool);
+  if (!account) {
+    return { info: { slices: [] }, accounts: [] };
+  }
+  const poolState = getVirtualPool(svm, program, pool);
+  const transferHookAccounts = await getExtraAccountMetasForTransferHook(
+    svm,
+    poolState.baseMint
+  );
+
+  if (transferHookAccounts.length === 0) {
+    return { info: { slices: [] }, accounts: [] };
+  }
+
+  const slices = accountTypes.map((accountsType) => ({
+    accountsType,
+    length: transferHookAccounts.length,
+  }));
+
+  const accounts = accountTypes.flatMap(() => transferHookAccounts);
+
+  return { info: { slices }, accounts };
+}
+
+type MintExtension = {
+  type: ExtensionType;
+  // offset of the extension data in the account data
+  offset: number;
+  length: number;
+};
+
+/**
+ * Extensions of a Token-2022 mint, read from the raw account data.
+ * Token-2022 adds two padding bytes when the mint length would equal the multisig
+ * account size. getExtensionTypes from spl-token fails on that padding.
+ */
+function getMintExtensions(data: Uint8Array): MintExtension[] {
+  const buffer = Buffer.from(data);
+  const extensions: MintExtension[] = [];
+  let index = ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE;
+  while (index + TYPE_SIZE + LENGTH_SIZE <= buffer.length) {
+    const type = buffer.readUInt16LE(index);
+    const length = buffer.readUInt16LE(index + TYPE_SIZE);
+    if (type === ExtensionType.Uninitialized) {
+      break;
+    }
+    const offset = index + TYPE_SIZE + LENGTH_SIZE;
+    extensions.push({ type, offset, length });
+    index = offset + length;
+  }
+  return extensions;
+}
+
+export function getMintExtensionTypes(data: Uint8Array): ExtensionType[] {
+  return getMintExtensions(data).map((extension) => extension.type);
+}
+
+/**
+ * Same as spl_token_2022 TransferFee::calculate_pre_fee_amount: the amount to
+ * transfer so the recipient receives `excludedAmount` after the fee.
+ */
+export function getTransferFeeIncludedAmount(
+  transferFee: TransferFee,
+  excludedAmount: bigint
+): bigint {
+  const bps = BigInt(transferFee.transferFeeBasisPoints);
+  const ONE = BigInt(MAX_FEE_BASIS_POINTS);
+  if (bps === BigInt(0) || excludedAmount === BigInt(0)) {
+    return excludedAmount;
+  }
+  if (bps === ONE) {
+    return excludedAmount + transferFee.maximumFee;
+  }
+  const numerator = excludedAmount * ONE;
+  const denominator = ONE - bps;
+  const raw = (numerator + denominator - BigInt(1)) / denominator;
+  if (raw - excludedAmount >= transferFee.maximumFee) {
+    return excludedAmount + transferFee.maximumFee;
+  }
+  return raw;
 }

@@ -57,6 +57,14 @@ static_assertions::const_assert_eq!(
 
 pub const MAX_MIGRATION_FEE_PERCENTAGE: u8 = 99;
 
+pub const MIN_LOCKED_LIQUIDITY_BPS: u16 = 1000; // 10%
+
+// Max lock duration must less than or equals to https://github.com/MeteoraAg/damm-v2/blob/689a3264484799d833c505523f4ff4e4990690aa/programs/cp-amm/src/constants.rs#L72
+// We reduce to 2 years because cliff_point is relative and depend on time when token is migrated
+pub const MAX_LOCK_DURATION_IN_SECONDS: u64 = 3600 * 24 * 365 * 2; // 2 years
+
+static_assertions::const_assert!(MAX_LOCK_DURATION_IN_SECONDS <= u32::MAX as u64);
+
 /// Store constants related to fees
 pub mod fee {
 
@@ -66,6 +74,9 @@ pub mod fee {
     /// Max fee BPS
     pub const MAX_FEE_BPS: u64 = 9900; // 99%
     pub const MAX_FEE_NUMERATOR: u64 = 990_000_000; // 99%
+
+    pub const MAX_BASE_TRANSFER_FEE_BPS: u16 = 1000; // 10%
+    pub const MAX_BASE_TRANSFER_FEE: u64 = u64::MAX;
 
     /// Max basis point. 100% in pct
     pub const MAX_BASIS_POINT: u64 = 10000;
@@ -87,8 +98,16 @@ pub mod fee {
 
     pub const HOST_FEE_PERCENT: u8 = 20; // 20%
 
-    // 0.01
-    pub const TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE: u64 = 10_000_000;
+    /// Protocol's share percentage of the pool creation fee. The remainder goes to the partner.
+    pub const PROTOCOL_POOL_CREATION_FEE_PERCENT: u8 = 10; // 10%
+
+    // min pool creation fee: 0.001 SOL
+    pub const MIN_POOL_CREATION_FEE: u64 = 1_000_000;
+    // max pool creation fee: 100 SOL
+    pub const MAX_POOL_CREATION_FEE: u64 = 100_000_000_000;
+
+    // migration fee bps
+    pub const PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS: u16 = 20; // 0.2%
 }
 
 pub mod seeds {
@@ -107,4 +126,15 @@ pub mod seeds {
     pub const PARTNER_METADATA_PREFIX: &[u8] = b"partner_metadata";
     pub const VIRTUAL_POOL_METADATA_PREFIX: &[u8] = b"virtual_pool_metadata";
     pub const BASE_LOCKER_PREFIX: &[u8] = b"base_locker";
+    pub const OPERATOR_PREFIX: &[u8] = b"operator";
+}
+
+pub mod protocol_fee_program {
+    use anchor_lang::{prelude::Pubkey, pubkey};
+
+    pub const ID: Pubkey = pubkey!("pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA");
+
+    pub mod seeds {
+        pub const PROTOCOL_FEE_AUTHORITY_PREFIX: &[u8] = b"protocol_fee_authority";
+    }
 }

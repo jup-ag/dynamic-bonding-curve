@@ -1,42 +1,49 @@
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import { NATIVE_MINT } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   BaseFee,
   ConfigParameters,
   createConfig,
   CreateConfigParams,
   createPoolWithSplToken,
+  MigratedPoolMarketCapFeeSchedulerParams,
   swap,
   SwapMode,
 } from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   createDammV2DynamicConfig,
-  FLASH_RENT_FUND,
-  fundSol,
-  startTest,
-} from "./utils";
-import {
+  createDammV2Operator,
+  createDammV2Program,
   createVirtualCurveProgram,
+  DammV2OperatorPermission,
   derivePoolAuthority,
+  encodePermissions,
+  FLASH_RENT_FUND,
+  generateAndFund,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  startSvm,
   U64_MAX,
 } from "./utils";
 import { getConfig, getDammV2Pool, getVirtualPool } from "./utils/fetcher";
-import { NATIVE_MINT } from "@solana/spl-token";
-
 import {
-  convertCollectFeeModeToDammv2,
+  PodAlignedFeeMarketCapScheduler,
+  PodAlignedFeeTimeScheduler,
+  VirtualCurveProgram,
+} from "./utils/types";
+
+import { BN } from "@anchor-lang/core";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import {
+  convertMigratedCollectFeeModeToDammv2,
   createMeteoraDammV2Metadata,
   MigrateMeteoraDammV2Params,
   migrateToDammV2,
 } from "./instructions/dammV2Migration";
-import { expect } from "chai";
-import { BN } from "@coral-xyz/anchor";
 
 describe("Migrate to damm v2 with dynamic config pool", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -45,20 +52,19 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
   let program: VirtualCurveProgram;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
+
+    await createDammV2Operator(svm, {
+      whitelistAddress: admin.publicKey,
+      admin,
+      permission: encodePermissions([DammV2OperatorPermission.CreateConfigKey]),
+    });
   });
 
   it("Full flow migrated to damm v2 new create pool endpoint", async () => {
@@ -69,37 +75,38 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     };
 
     const poolAuthority = derivePoolAuthority();
-    const beforePoolAuthorityLamport = await context.banksClient.getBalance(
-      poolAuthority
-    );
+
+    const beforePoolAuthorityLamport = svm.getBalance(poolAuthority);
 
     expect(beforePoolAuthorityLamport.toString()).eq(
       FLASH_RENT_FUND.toString()
     );
 
     const { pool, poolConfig } = await fullFlow(
-      context.banksClient,
+      svm,
       program,
       admin,
       partner,
       poolCreator,
       operator,
       user,
-      migratedPoolFee
+      migratedPoolFee,
+      0, // compounding fee bps
+      0,
+      {
+        schedulerExpirationDuration: 0,
+        sqrtPriceStepBps: 0,
+        reductionFactor: new BN(0),
+        numberOfPeriod: 0,
+      }
     );
 
-    const afterPoolAuthorityLamport = await context.banksClient.getBalance(
-      poolAuthority
-    );
+    const afterPoolAuthorityLamport = svm.getBalance(poolAuthority);
 
     expect(afterPoolAuthorityLamport.toString()).eq(FLASH_RENT_FUND.toString());
 
-    const dammPoolState = await getDammV2Pool(context.banksClient, pool);
-    const poolConfigState = await getConfig(
-      context.banksClient,
-      program,
-      poolConfig
-    );
+    const dammPoolState = getDammV2Pool(svm, pool);
+    const poolConfigState = getConfig(svm, program, poolConfig);
     // validate pool config
     expect(poolConfigState.migratedDynamicFee).eq(migratedPoolFee.dynamicFee);
     expect(poolConfigState.collectFeeMode).eq(migratedPoolFee.collectFeeMode);
@@ -109,20 +116,155 @@ describe("Migrate to damm v2 with dynamic config pool", () => {
     // validate pool state
     const poolFeeNumerator =
       (migratedPoolFee.poolFeeBps * 1_000_000_000) / 10_000;
-    expect(dammPoolState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(
-      poolFeeNumerator
-    );
+
+    const dammV2Program = createDammV2Program();
+    const feeSchedulerInfo: PodAlignedFeeTimeScheduler =
+      dammV2Program.coder.types.decode(
+        "podAlignedFeeTimeScheduler",
+        Buffer.from(dammPoolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+    expect(feeSchedulerInfo.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator);
     expect(dammPoolState.collectFeeMode).eq(
-      convertCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+      convertMigratedCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
     );
     expect(dammPoolState.poolFees.dynamicFee.initialized).eq(
       migratedPoolFee.dynamicFee
     );
   });
+
+  it("Full flow migrated to damm v2 with fee market cap scheduler", async () => {
+    const migratedPoolFee = {
+      poolFeeBps: 1000,
+      collectFeeMode: 0,
+      dynamicFee: 1,
+    };
+
+    const poolAuthority = derivePoolAuthority();
+
+    const beforePoolAuthorityLamport = svm.getBalance(poolAuthority);
+
+    expect(beforePoolAuthorityLamport.toString()).eq(
+      FLASH_RENT_FUND.toString()
+    );
+
+    const marketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams =
+    {
+      schedulerExpirationDuration: 86400,
+      sqrtPriceStepBps: 100,
+      reductionFactor: new BN(900000),
+      numberOfPeriod: 100,
+    };
+
+    const { pool, poolConfig } = await fullFlow(
+      svm,
+      program,
+      admin,
+      partner,
+      poolCreator,
+      operator,
+      user,
+      migratedPoolFee,
+      0, // compounding fee bps
+      3, // FeeMarketCap
+      marketCapFeeSchedulerParams
+    );
+
+    const dammPoolState = getDammV2Pool(svm, pool);
+    const poolConfigState = getConfig(svm, program, poolConfig);
+
+    // validate pool config
+    expect(poolConfigState.migratedDynamicFee).eq(migratedPoolFee.dynamicFee);
+    expect(poolConfigState.collectFeeMode).eq(migratedPoolFee.collectFeeMode);
+    const feeBpsValue = poolConfigState.migratedPoolFeeBps;
+    expect(feeBpsValue).eq(migratedPoolFee.poolFeeBps);
+
+    // validate pool state
+    const poolFeeNumerator =
+      (migratedPoolFee.poolFeeBps * 1_000_000_000) / 10_000;
+
+    const dammV2Program = createDammV2Program();
+    const feeSchedulerInfo: PodAlignedFeeMarketCapScheduler =
+      dammV2Program.coder.types.decode(
+        "podAlignedFeeMarketCapScheduler",
+        Buffer.from(dammPoolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+    expect(feeSchedulerInfo.cliffFeeNumerator.toNumber()).eq(poolFeeNumerator);
+    expect(feeSchedulerInfo.baseFeeMode).eq(3); // FeeMarketCap
+    expect(feeSchedulerInfo.schedulerExpirationDuration).eq(
+      marketCapFeeSchedulerParams.schedulerExpirationDuration
+    );
+    expect(feeSchedulerInfo.sqrtPriceStepBps).eq(
+      marketCapFeeSchedulerParams.sqrtPriceStepBps
+    );
+    expect(
+      feeSchedulerInfo.reductionFactor.eq(
+        marketCapFeeSchedulerParams.reductionFactor
+      )
+    ).to.be.true;
+    expect(feeSchedulerInfo.numberOfPeriod).to.eq(
+      marketCapFeeSchedulerParams.numberOfPeriod
+    );
+
+    expect(dammPoolState.collectFeeMode).eq(
+      convertMigratedCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+    );
+    expect(dammPoolState.poolFees.dynamicFee.initialized).eq(
+      migratedPoolFee.dynamicFee
+    );
+  });
+
+  it("Full flow migrated to damm v2 with compounding fee", async () => {
+    const migratedPoolFee = {
+      poolFeeBps: 100,
+      collectFeeMode: 2, // Compounding
+      dynamicFee: 0,
+    };
+    const compoundingFeeBps = 500; // 5%
+
+    const { pool, poolConfig } = await fullFlow(
+      svm,
+      program,
+      admin,
+      partner,
+      poolCreator,
+      operator,
+      user,
+      migratedPoolFee,
+      compoundingFeeBps,
+      0,
+      {
+        schedulerExpirationDuration: 0,
+        sqrtPriceStepBps: 0,
+        reductionFactor: new BN(0),
+        numberOfPeriod: 0,
+      }
+    );
+
+    const dammPoolState = getDammV2Pool(svm, pool);
+    const poolConfigState = getConfig(svm, program, poolConfig);
+
+    // validate pool config
+    expect(poolConfigState.migratedCollectFeeMode).eq(
+      migratedPoolFee.collectFeeMode
+    );
+    expect(poolConfigState.migratedCompoundingFeeBps).eq(
+      compoundingFeeBps
+    );
+
+    // validate damm v2 pool state
+    expect(dammPoolState.collectFeeMode).eq(
+      convertMigratedCollectFeeModeToDammv2(migratedPoolFee.collectFeeMode)
+    );
+    expect(dammPoolState.poolFees.compoundingFeeBps).eq(
+      compoundingFeeBps
+    );
+  });
 });
 
 async function fullFlow(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   admin: Keypair,
   partner: Keypair,
@@ -133,7 +275,10 @@ async function fullFlow(
     poolFeeBps: number;
     collectFeeMode: number;
     dynamicFee: number;
-  }
+  },
+  compoundingFeeBps: number,
+  migratedPoolBaseFeeMode: number,
+  migratedPoolMarketCapFeeSchedulerParams: MigratedPoolMarketCapFeeSchedulerParams
 ): Promise<{
   pool: PublicKey;
   poolConfig: PublicKey;
@@ -175,10 +320,10 @@ async function fullFlow(
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(LAMPORTS_PER_SOL * 5),
-    partnerLpPercentage: 20,
-    creatorLpPercentage: 20,
-    partnerLockedLpPercentage: 55,
-    creatorLockedLpPercentage: 5,
+    partnerLiquidityPercentage: 20,
+    creatorLiquidityPercentage: 20,
+    partnerPermanentLockedLiquidityPercentage: 55,
+    creatorPermanentLockedLiquidityPercentage: 5,
     sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
     lockedVesting: {
       amountPerPeriod: new BN(0),
@@ -195,21 +340,39 @@ async function fullFlow(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
+    poolCreationFee: new BN(0),
     migratedPoolFee,
-    padding: [],
     curve: curves,
+    creatorLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    partnerLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      cliffDurationFromMigrationTime: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      frequency: 0,
+    },
+    enableFirstSwapWithMinFee: false,
+    compoundingFeeBps,
+    migratedPoolBaseFeeMode,
+    migratedPoolMarketCapFeeSchedulerParams,
   };
-  const params: CreateConfigParams = {
+  const params: CreateConfigParams<ConfigParameters> = {
     payer: partner,
     leftoverReceiver: partner.publicKey,
     feeClaimer: partner.publicKey,
     quoteMint: NATIVE_MINT,
     instructionParams,
   };
-  const config = await createConfig(banksClient, program, params);
+  const config = await createConfig(svm, program, params);
 
   console.log("create pool");
-  const virtualPool = await createPoolWithSplToken(banksClient, program, {
+  const virtualPool = await createPoolWithSplToken(svm, program, {
     poolCreator,
     payer: operator,
     quoteMint: NATIVE_MINT,
@@ -220,14 +383,10 @@ async function fullFlow(
       uri: "abc.com",
     },
   });
-  const virtualPoolState = await getVirtualPool(
-    banksClient,
-    program,
-    virtualPool
-  );
+  const virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
   console.log("swap full curve");
-  await swap(banksClient, program, {
+  await swap(svm, program, {
     config,
     payer: user,
     pool: virtualPool,
@@ -240,26 +399,24 @@ async function fullFlow(
   });
 
   console.log("Create meteora damm v2 metadata");
-  await createMeteoraDammV2Metadata(banksClient, program, {
+  await createMeteoraDammV2Metadata(svm, program, {
     payer: admin,
     virtualPool,
     config,
   });
 
+  console.log("Create meteora damm v2 dynamic config");
   const poolAuthority = derivePoolAuthority();
-  const dammConfig = await createDammV2DynamicConfig(
-    banksClient,
-    admin,
-    poolAuthority
-  );
+  const dammConfig = await createDammV2DynamicConfig(svm, admin, poolAuthority);
   const migrationParams: MigrateMeteoraDammV2Params = {
     payer: admin,
     virtualPool,
     dammConfig,
   };
 
+  console.log("migrate to damm v2");
   const { dammPool: pool } = await migrateToDammV2(
-    banksClient,
+    svm,
     program,
     migrationParams
   );

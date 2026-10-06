@@ -1,5 +1,5 @@
 import { writeFile } from "fs/promises";
-import { AnchorProvider, BN, Program, Wallet } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program, Wallet } from "@anchor-lang/core";
 import { clusterApiUrl, Connection, Keypair, PublicKey } from "@solana/web3.js";
 
 import { MAX_SQRT_PRICE, MIN_SQRT_PRICE, U64_MAX } from "../tests/utils";
@@ -80,7 +80,7 @@ async function createConfigSplToken(
     },
     activationType: 0,
     collectFeeMode: 1,
-    migrationOption: 0,
+    migrationOption: 1,
     tokenType: 0,
     tokenDecimal: 6,
     // 5 SOL
@@ -139,19 +139,19 @@ async function createConfigToken2022(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(2_500_000),
-      numberOfPeriod: 0,
-      reductionFactor: new BN(0),
-      periodFrequency: new BN(0),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(2_500_000),
+        numberOfPeriod: 0,
+        reductionFactor: new BN(0),
+        periodFrequency: new BN(0),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(2_500_000),
-      firstFactor: 0, // first factor | number_of_period
-      thirdFactor: new BN(0), // third factor | reduction_factor
-      secondFactor: new BN(0), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(2_500_000),
+        firstFactor: 0, // first factor | number_of_period
+        thirdFactor: new BN(0), // third factor | reduction_factor
+        secondFactor: new BN(0), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
@@ -204,8 +204,9 @@ async function createConfigToken2022(
   return ix.data;
 }
 
-async function createConfigSplTokenForSwapDamm(
-  program: Program<VirtualCurve>
+async function buildCreateConfigSplTokenForSwapDamm(
+  program: Program<VirtualCurve>,
+  migrationOption: number
 ): Promise<Buffer> {
   let curves = [];
   for (let i = 1; i <= 16; i++) {
@@ -224,19 +225,19 @@ async function createConfigSplTokenForSwapDamm(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(2_500_000),
-      numberOfPeriod: 0,
-      reductionFactor: new BN(0),
-      periodFrequency: new BN(0),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(2_500_000),
+        numberOfPeriod: 0,
+        reductionFactor: new BN(0),
+        periodFrequency: new BN(0),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(2_500_000),
-      firstFactor: 0, // first factor | number_of_period
-      thirdFactor: new BN(0), // third factor | reduction_factor
-      secondFactor: new BN(0), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(2_500_000),
+        firstFactor: 0, // first factor | number_of_period
+        thirdFactor: new BN(0), // third factor | reduction_factor
+        secondFactor: new BN(0), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
@@ -245,7 +246,7 @@ async function createConfigSplTokenForSwapDamm(
     },
     activationType: 0,
     collectFeeMode: 0,
-    migrationOption: 0,
+    migrationOption,
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(5e9),
@@ -288,6 +289,20 @@ async function createConfigSplTokenForSwapDamm(
   return ix.data;
 }
 
+async function createConfigSplTokenForSwapDamm(
+  program: Program<VirtualCurve>
+): Promise<Buffer> {
+  return buildCreateConfigSplTokenForSwapDamm(program, 1);
+}
+
+// Encodes the deprecated MigrationOption::MeteoraDamm so the backwards
+// compatibility suite can assert the program now rejects it.
+async function createConfigSplTokenForSwapDammDeprecated(
+  program: Program<VirtualCurve>
+): Promise<Buffer> {
+  return buildCreateConfigSplTokenForSwapDamm(program, 0);
+}
+
 async function createConfigSplTokenForSwapDammv2(
   program: Program<VirtualCurve>
 ): Promise<Buffer> {
@@ -308,19 +323,19 @@ async function createConfigSplTokenForSwapDammv2(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(2_500_000),
-      numberOfPeriod: 0,
-      reductionFactor: new BN(0),
-      periodFrequency: new BN(0),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(2_500_000),
+        numberOfPeriod: 0,
+        reductionFactor: new BN(0),
+        periodFrequency: new BN(0),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(2_500_000),
-      firstFactor: 0, // first factor | number_of_period
-      thirdFactor: new BN(0), // third factor | reduction_factor
-      secondFactor: new BN(0), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(2_500_000),
+        firstFactor: 0, // first factor | number_of_period
+        thirdFactor: new BN(0), // third factor | reduction_factor
+        secondFactor: new BN(0), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
@@ -390,19 +405,19 @@ async function createConfigSplTokenWithBaseFeeParameters(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(10_000_000),
-      numberOfPeriod: 10,
-      reductionFactor: new BN(14),
-      periodFrequency: new BN(3),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(10_000_000),
+        numberOfPeriod: 10,
+        reductionFactor: new BN(14),
+        periodFrequency: new BN(3),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(10_000_000),
-      firstFactor: 10, // first factor | number_of_period
-      thirdFactor: new BN(14), // third factor | reduction_factor
-      secondFactor: new BN(3), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(10_000_000),
+        firstFactor: 10, // first factor | number_of_period
+        thirdFactor: new BN(14), // third factor | reduction_factor
+        secondFactor: new BN(3), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
@@ -411,7 +426,7 @@ async function createConfigSplTokenWithBaseFeeParameters(
     },
     activationType: 0,
     collectFeeMode: 1,
-    migrationOption: 0,
+    migrationOption: 1,
     tokenType: 0,
     tokenDecimal: 6,
     // 5 SOL
@@ -945,6 +960,7 @@ async function main() {
     createConfigSplToken,
     createConfigToken2022,
     createConfigSplTokenForSwapDamm,
+    createConfigSplTokenForSwapDammDeprecated,
     createConfigSplTokenForSwapDammv2,
     createConfigSplTokenWithBaseFeeParameters,
     claimTradingFee,

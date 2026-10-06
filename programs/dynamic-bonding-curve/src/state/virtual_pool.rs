@@ -1,5 +1,5 @@
 use std::{
-    ops::{BitAnd, BitXor},
+    ops::{BitAnd, BitXor, Deref, DerefMut},
     u128,
 };
 
@@ -87,9 +87,9 @@ pub enum MigrationProgress {
     CreatedPool,
 }
 
-#[account(zero_copy)]
+#[zero_copy]
 #[derive(InitSpace, Debug, Default)]
-pub struct VirtualPool {
+pub struct PoolState {
     /// volatility tracker
     pub volatility_tracker: VolatilityTracker,
     /// config key
@@ -132,7 +132,9 @@ pub struct VirtualPool {
     pub is_withdraw_leftover: u8,
     /// is creator withdraw surplus
     pub is_creator_withdraw_surplus: u8,
-    /// migration fee withdraw status, first bit is for partner, second bit is for creator
+    /// migration fee withdraw status
+    /// bit 1 (0b010) creator
+    /// bit 2 (0b100) partner
     pub migration_fee_withdraw_status: u8,
     /// pool metrics
     pub metrics: PoolMetrics,
@@ -142,19 +144,73 @@ pub struct VirtualPool {
     pub creator_base_fee: u64,
     /// creator quote fee
     pub creator_quote_fee: u64,
+    /// legacy creation fee bits, we dont use this now
+    pub legacy_creation_fee_bits: u8,
+    /// pool creation fee claim status
     pub creation_fee_bits: u8,
-    pub _padding_0: [u8; 7],
+    /// Cached flag
+    pub has_swap: u8,
     /// Padding for further use
-    pub _padding_1: [u64; 6],
+    pub _padding_0: [u8; 5],
+    pub protocol_liquidity_migration_fee_bps: u16,
+    pub _padding_1: [u8; 6],
+    pub protocol_migration_base_fee_amount: u64,
+    pub protocol_migration_quote_fee_amount: u64,
+    /// Padding for further use
+    pub _padding_2: [u64; 3],
 }
 
+#[account(zero_copy)]
+#[derive(InitSpace, Debug, Default)]
+pub struct VirtualPool {
+    pub pool_state: PoolState,
+}
+
+impl Deref for VirtualPool {
+    type Target = PoolState;
+    fn deref(&self) -> &Self::Target {
+        &self.pool_state
+    }
+}
+
+impl DerefMut for VirtualPool {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.pool_state
+    }
+}
+
+#[account(zero_copy)]
+#[derive(InitSpace, Debug, Default)]
+pub struct TransferHookPool {
+    pub pool_state: PoolState,
+}
+
+impl Deref for TransferHookPool {
+    type Target = PoolState;
+    fn deref(&self) -> &Self::Target {
+        &self.pool_state
+    }
+}
+
+impl DerefMut for TransferHookPool {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.pool_state
+    }
+}
+
+// all three should be the same size
+const_assert_eq!(PoolState::INIT_SPACE, 416);
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);
+const_assert_eq!(TransferHookPool::INIT_SPACE, 416);
 
-pub const PARTNER_MASK: u8 = 0b100;
-pub const CREATOR_MASK: u8 = 0b010;
+pub const PARTNER_MIGRATION_FEE_MASK: u8 = 0b100;
+pub const CREATOR_MIGRATION_FEE_MASK: u8 = 0b010;
 
-const CREATION_FEE_CHARGED_MASK: u8 = 0b01;
-const CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
+const LEGACY_CREATION_FEE_CHARGED_MASK: u8 = 0b01;
+const LEGACY_CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
+
+const PARTNER_CREATION_FEE_CLAIMED_MASK: u8 = 0b10;
+const PROTOCOL_CREATION_FEE_CLAIMED_MASK: u8 = 0b01;
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -186,7 +242,7 @@ impl PoolMetrics {
     }
 }
 
-impl VirtualPool {
+impl PoolState {
     pub fn initialize(
         &mut self,
         volatility_tracker: VolatilityTracker,
@@ -199,7 +255,7 @@ impl VirtualPool {
         pool_type: u8,
         activation_point: u64,
         base_reserve: u64,
-        has_creation_fee: bool,
+        protocol_liquidity_migration_fee_bps: u16,
     ) {
         self.volatility_tracker = volatility_tracker;
         self.config = config;
@@ -211,10 +267,7 @@ impl VirtualPool {
         self.pool_type = pool_type;
         self.activation_point = activation_point;
         self.base_reserve = base_reserve;
-
-        if has_creation_fee {
-            self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CHARGED_MASK);
-        }
+        self.protocol_liquidity_migration_fee_bps = protocol_liquidity_migration_fee_bps;
     }
 
     pub fn get_swap_result_from_exact_output(
@@ -224,28 +277,31 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
+        eligible_for_first_swap_with_min_fee: bool,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
-        let mut actual_fee_numerator = 0;
 
         let included_fee_out_amount = if fee_mode.fees_on_input {
             amount_out
         } else {
-            let trade_fee_numerator = config
-                .pool_fees
-                .get_total_fee_numerator_from_excluded_fee_amount(
-                    &self.volatility_tracker,
-                    current_point,
-                    self.activation_point,
-                    amount_out,
-                    trade_direction,
-                )?;
+            let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+                config.pool_fees.get_min_base_fee_numerator()?
+            } else {
+                config
+                    .pool_fees
+                    .get_total_fee_numerator_from_excluded_fee_amount(
+                        &self.volatility_tracker,
+                        current_point,
+                        self.activation_point,
+                        amount_out,
+                        trade_direction,
+                    )?
+            };
+
             let (included_fee_out_amount, fee_amount) =
                 PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_out)?;
-
-            actual_fee_numerator = trade_fee_numerator;
 
             // that ensure included_fee_out_amount = amount_out + trading_fee + protocol_fee + referral_fee
             let (trading_fee, protocol_fee, referral_fee) = config
@@ -272,21 +328,23 @@ impl VirtualPool {
 
         require!(
             next_sqrt_price <= config.migration_sqrt_price,
-            PoolError::SwapAmountIsOverAThreshold
+            PoolError::InsufficientLiquidity
         );
 
         let (excluded_fee_input_amount, included_fee_input_amount) = if fee_mode.fees_on_input {
-            let trade_fee_numerator = config
-                .pool_fees
-                .get_total_fee_numerator_from_excluded_fee_amount(
-                    &self.volatility_tracker,
-                    current_point,
-                    self.activation_point,
-                    amount_in,
-                    trade_direction,
-                )?;
-
-            actual_fee_numerator = trade_fee_numerator;
+            let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+                config.pool_fees.get_min_base_fee_numerator()?
+            } else {
+                config
+                    .pool_fees
+                    .get_total_fee_numerator_from_excluded_fee_amount(
+                        &self.volatility_tracker,
+                        current_point,
+                        self.activation_point,
+                        amount_in,
+                        trade_direction,
+                    )?
+            };
 
             let (included_fee_in_amount, fee_amount) =
                 PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?;
@@ -313,7 +371,6 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
-            fee_numerator: actual_fee_numerator,
         })
     }
 
@@ -365,20 +422,33 @@ impl VirtualPool {
                     )?;
                     total_amount_in = total_amount_in.safe_add(in_amount)?;
                     current_sqrt_price = next_sqrt_price;
-                    amount_left = amount_left.safe_sub(max_amount_out.try_into().unwrap())?;
+                    amount_left = amount_left.safe_sub(
+                        u64::try_from(max_amount_out).map_err(|_| PoolError::TypeCastFailed)?,
+                    )?;
                 }
             }
         }
         if amount_left != 0 {
+            let max_amount_out = get_delta_amount_quote_unsigned_256(
+                config.sqrt_start_price,
+                current_sqrt_price,
+                config.curve[0].liquidity,
+                Rounding::Down,
+            )?;
+            require!(
+                U256::from(amount_left) <= max_amount_out,
+                PoolError::InsufficientLiquidity
+            );
             let next_sqrt_price = get_next_sqrt_price_from_output(
                 current_sqrt_price,
                 config.curve[0].liquidity,
                 amount_left,
                 true,
             )?;
+            // redundant check
             require!(
                 next_sqrt_price >= config.sqrt_start_price,
-                PoolError::NextSqrtPriceIsSmallerThanStartSqrtPrice
+                PoolError::InsufficientLiquidity
             );
             let in_amount = get_delta_amount_base_unsigned(
                 next_sqrt_price,
@@ -469,22 +539,25 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
-        activation_point: u64,
-        volatility_tracker: &VolatilityTracker,
+        eligible_for_first_swap_with_min_fee: bool,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let trade_fee_numerator = config
-            .pool_fees
-            .get_total_fee_numerator_from_included_fee_amount(
-                &volatility_tracker,
-                current_point,
-                activation_point,
-                amount_in,
-                trade_direction,
-            )?;
+        let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+            config.pool_fees.get_min_base_fee_numerator()?
+        } else {
+            config
+                .pool_fees
+                .get_total_fee_numerator_from_included_fee_amount(
+                    &self.volatility_tracker,
+                    current_point,
+                    self.activation_point,
+                    amount_in,
+                    trade_direction,
+                )?
+        };
 
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
@@ -522,7 +595,7 @@ impl VirtualPool {
             )?,
         };
 
-        require!(amount_left == 0, PoolError::SwapAmountIsOverAThreshold);
+        require!(amount_left == 0, PoolError::InsufficientLiquidity);
 
         let actual_amount_out = if fee_mode.fees_on_input {
             output_amount
@@ -554,7 +627,6 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
-            fee_numerator: trade_fee_numerator,
         })
     }
 
@@ -565,20 +637,25 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
+        eligible_for_first_swap_with_min_fee: bool,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let trade_fee_numerator = config
-            .pool_fees
-            .get_total_fee_numerator_from_included_fee_amount(
-                &self.volatility_tracker,
-                current_point,
-                self.activation_point,
-                amount_in,
-                trade_direction,
-            )?;
+        let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+            config.pool_fees.get_min_base_fee_numerator()?
+        } else {
+            config
+                .pool_fees
+                .get_total_fee_numerator_from_included_fee_amount(
+                    &self.volatility_tracker,
+                    current_point,
+                    self.activation_point,
+                    amount_in,
+                    trade_direction,
+                )?
+        };
 
         let mut actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
@@ -620,15 +697,20 @@ impl VirtualPool {
             actual_amount_in = actual_amount_in.safe_sub(amount_left)?;
             // recalculate included_fee_input_amount actual_trading_fee, actual_protocol_fee, actual_referral_fee
             if fee_mode.fees_on_input {
-                let trade_fee_numerator = config
-                    .pool_fees
-                    .get_total_fee_numerator_from_excluded_fee_amount(
-                        &self.volatility_tracker,
-                        current_point,
-                        self.activation_point,
-                        actual_amount_in,
-                        trade_direction,
-                    )?;
+                let trade_fee_numerator = if eligible_for_first_swap_with_min_fee {
+                    config.pool_fees.get_min_base_fee_numerator()?
+                } else {
+                    config
+                        .pool_fees
+                        .get_total_fee_numerator_from_excluded_fee_amount(
+                            &self.volatility_tracker,
+                            current_point,
+                            self.activation_point,
+                            actual_amount_in,
+                            trade_direction,
+                        )?
+                };
+
                 let (included_fee_input_amount, fee_amount) =
                     PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, actual_amount_in)?;
 
@@ -679,7 +761,6 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
-            fee_numerator: trade_fee_numerator,
         })
     }
 
@@ -702,7 +783,7 @@ impl VirtualPool {
                     config.curve[i].sqrt_price,
                     current_sqrt_price,
                     config.curve[i + 1].liquidity,
-                    Rounding::Up, // TODO check whether we should use round down or round up
+                    Rounding::Up,
                 )?;
                 if U256::from(amount_left) < max_amount_in {
                     let next_sqrt_price = get_next_sqrt_price_from_input(
@@ -741,12 +822,25 @@ impl VirtualPool {
             }
         }
         if amount_left != 0 {
-            let next_sqrt_price = get_next_sqrt_price_from_input(
+            let mut next_sqrt_price = get_next_sqrt_price_from_input(
                 current_sqrt_price,
                 config.curve[0].liquidity,
                 amount_left,
                 true,
             )?;
+
+            if next_sqrt_price < config.sqrt_start_price {
+                next_sqrt_price = config.sqrt_start_price;
+                let amount_in = get_delta_amount_base_unsigned(
+                    next_sqrt_price,
+                    current_sqrt_price,
+                    config.curve[0].liquidity,
+                    Rounding::Up,
+                )?;
+                amount_left = amount_left.safe_sub(amount_in)?;
+            } else {
+                amount_left = 0;
+            }
 
             let output_amount = get_delta_amount_quote_unsigned(
                 next_sqrt_price,
@@ -757,10 +851,9 @@ impl VirtualPool {
             total_output_amount = total_output_amount.safe_add(output_amount)?;
             current_sqrt_price = next_sqrt_price;
         }
-        // no need to validate amount_left because if user sell more than what has in quote reserve, then it will be failed when deduct pool.quote_reserve
 
         Ok(SwapAmountFromInput {
-            amount_left: 0,
+            amount_left,
             output_amount: total_output_amount,
             next_sqrt_price: current_sqrt_price,
         })
@@ -861,7 +954,6 @@ impl VirtualPool {
             protocol_fee,
             trading_fee,
             referral_fee,
-            fee_numerator,
         } = swap_result;
 
         let old_sqrt_price = self.sqrt_price;
@@ -904,6 +996,8 @@ impl VirtualPool {
         }
 
         self.update_post_swap(config, old_sqrt_price, current_timestamp)?;
+        // update cached flag
+        self.has_swap = 1;
         Ok(())
     }
 
@@ -942,12 +1036,58 @@ impl VirtualPool {
         Ok(())
     }
 
-    pub fn claim_protocol_fee(&mut self) -> (u64, u64) {
-        let token_base_amount = self.protocol_base_fee;
-        let token_quote_amount = self.protocol_quote_fee;
-        self.protocol_base_fee = 0;
-        self.protocol_quote_fee = 0;
-        (token_base_amount, token_quote_amount)
+    pub fn is_first_swap(&self) -> bool {
+        self.has_swap == 0
+    }
+
+    pub fn claim_protocol_base_fee(&mut self, max_amount: u64) -> Result<u64> {
+        // try to claim from trading fees firstly
+        let trading_claimed_fee = self.protocol_base_fee.min(max_amount);
+        self.protocol_base_fee = self.protocol_base_fee.safe_sub(trading_claimed_fee)?;
+        let max_amount = max_amount.safe_sub(trading_claimed_fee)?;
+        // claim from migration fee
+        let migration_claimed_fee = self.protocol_migration_base_fee_amount.min(max_amount);
+        self.protocol_migration_base_fee_amount = self
+            .protocol_migration_base_fee_amount
+            .safe_sub(migration_claimed_fee)?;
+        let total_claimed_fee = trading_claimed_fee.safe_add(migration_claimed_fee)?;
+
+        Ok(total_claimed_fee)
+    }
+
+    fn claim_protocol_quote_fee(&mut self, max_amount: u64) -> Result<u64> {
+        // try to claim from trading fees firstly
+        let trading_claimed_fee = self.protocol_quote_fee.min(max_amount);
+        self.protocol_quote_fee = self.protocol_quote_fee.safe_sub(trading_claimed_fee)?;
+        let max_amount = max_amount.safe_sub(trading_claimed_fee)?;
+        // claim from migration fee
+        let migration_claimed_fee = self.protocol_migration_quote_fee_amount.min(max_amount);
+        self.protocol_migration_quote_fee_amount = self
+            .protocol_migration_quote_fee_amount
+            .safe_sub(migration_claimed_fee)?;
+        let total_claimed_fee = trading_claimed_fee.safe_add(migration_claimed_fee)?;
+
+        Ok(total_claimed_fee)
+    }
+
+    // `max_amount` caps the total trading fee and migration fee only.
+    // if pool has surplus in quote token, the returned amount can exceed the max_amount
+    pub fn claim_protocol_quote_fee_and_surplus(
+        &mut self,
+        max_amount: u64,
+        migration_quote_threshold: u64,
+    ) -> Result<u64> {
+        let mut amount = self.claim_protocol_quote_fee(max_amount)?;
+
+        if self.is_protocol_withdraw_surplus == 0
+            && self.is_curve_complete(migration_quote_threshold)
+        {
+            self.update_protocol_withdraw_surplus();
+            let protocol_surplus_amount = self.get_protocol_surplus(migration_quote_threshold)?;
+            amount = amount.safe_add(protocol_surplus_amount)?;
+        }
+
+        Ok(amount)
     }
 
     pub fn claim_partner_trading_fee(
@@ -1047,7 +1187,7 @@ impl VirtualPool {
         self.migration_fee_withdraw_status.bitand(mask) == 0
     }
     pub fn update_withdraw_migration_fee(&mut self, mask: u8) {
-        self.migration_fee_withdraw_status = self.migration_fee_withdraw_status.bitxor(mask)
+        self.migration_fee_withdraw_status = self.migration_fee_withdraw_status.bitxor(mask);
     }
 
     pub fn get_migration_progress(&self) -> Result<MigrationProgress> {
@@ -1060,16 +1200,51 @@ impl VirtualPool {
         self.migration_progress = progress;
     }
 
-    pub fn has_creation_fee(&self) -> bool {
-        self.creation_fee_bits.bitand(CREATION_FEE_CHARGED_MASK) != 0
+    pub fn has_legacy_creation_fee(&self) -> bool {
+        self.legacy_creation_fee_bits
+            .bitand(LEGACY_CREATION_FEE_CHARGED_MASK)
+            != 0
     }
 
-    pub fn creation_fee_claimed(&self) -> bool {
-        self.creation_fee_bits.bitand(CREATION_FEE_CLAIMED_MASK) != 0
+    pub fn eligible_to_claim_legacy_creation_fee(&self) -> bool {
+        self.legacy_creation_fee_bits
+            .bitand(LEGACY_CREATION_FEE_CLAIMED_MASK)
+            == 0
     }
 
-    pub fn update_creation_fee_claimed(&mut self) {
-        self.creation_fee_bits = self.creation_fee_bits.bitxor(CREATION_FEE_CLAIMED_MASK);
+    pub fn update_legacy_creation_fee_claimed(&mut self) {
+        self.legacy_creation_fee_bits = self
+            .legacy_creation_fee_bits
+            .bitxor(LEGACY_CREATION_FEE_CLAIMED_MASK);
+    }
+
+    pub fn eligible_to_claim_partner_pool_creation_fee(&self) -> bool {
+        self.creation_fee_bits
+            .bitand(PARTNER_CREATION_FEE_CLAIMED_MASK)
+            == 0
+    }
+
+    pub fn update_partner_pool_creation_fee_claimed(&mut self) {
+        self.creation_fee_bits = self
+            .creation_fee_bits
+            .bitxor(PARTNER_CREATION_FEE_CLAIMED_MASK)
+    }
+
+    pub fn eligible_to_claim_protocol_pool_creation_fee(&self) -> bool {
+        self.creation_fee_bits
+            .bitand(PROTOCOL_CREATION_FEE_CLAIMED_MASK)
+            == 0
+    }
+
+    pub fn update_protocol_pool_creation_fee_claimed(&mut self) {
+        self.creation_fee_bits = self
+            .creation_fee_bits
+            .bitxor(PROTOCOL_CREATION_FEE_CLAIMED_MASK)
+    }
+
+    pub fn save_protocol_liquidity_migration_fee(&mut self, base_amount: u64, quote_amount: u64) {
+        self.protocol_migration_base_fee_amount = base_amount;
+        self.protocol_migration_quote_fee_amount = quote_amount;
     }
 }
 
@@ -1082,7 +1257,6 @@ pub struct SwapResult {
     pub trading_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
-    pub fee_numerator: u64,
 }
 
 impl SwapResult {
@@ -1110,7 +1284,6 @@ pub struct SwapResult2 {
     pub trading_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
-    pub fee_numerator: u64,
 }
 
 impl SwapResult2 {
@@ -1122,7 +1295,6 @@ impl SwapResult2 {
             trading_fee: self.trading_fee,
             protocol_fee: self.protocol_fee,
             referral_fee: self.referral_fee,
-            fee_numerator: self.fee_numerator,
         }
     }
 }

@@ -1,207 +1,216 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-	createPoolWithSplToken,
-	swap2,
-	Swap2Params,
-} from "./instructions/userInstructions";
-import {
-	ClaimTradeFeeParams,
-	claimTradingFee,
-	partnerWithdrawSurplus,
-	createConfigForSwapDamm,
-	CreateConfigForSwapParams,
-} from "./instructions/partnerInstructions";
-import {
-	creatorWithdrawSurplus,
-	transferCreator,
-} from "./instructions/creatorInstructions";
-import { Pool, VirtualCurveProgram } from "../utils/types";
+import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { fundSol, getMint, startTest } from "../utils";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import { SwapMode } from "../instructions";
 import {
-	createDammConfig,
-	createVirtualCurveProgram,
-	derivePoolAuthority,
+  createDammConfig,
+  createVirtualCurveProgram,
+  derivePoolAuthority,
+  expectThrowsAsync,
+  generateAndFund,
+  getDbcProgramErrorCodeHexString,
+  getMint,
+  setDeprecatedMeteoraDammConfig,
+  startSvm,
 } from "../utils";
 import { getVirtualPool } from "../utils/fetcher";
-import { NATIVE_MINT } from "@solana/spl-token";
+import { Pool, VirtualCurveProgram } from "../utils/types";
 import {
-	createMeteoraMetadata,
-	lockLpForCreatorDamm,
-	lockLpForPartnerDamm,
-	MigrateMeteoraParams,
-	migrateToMeteoraDamm,
-	partnerClaimLpDamm,
-	creatorClaimLpDamm,
+  creatorWithdrawSurplus,
+  transferCreator,
+} from "./instructions/creatorInstructions";
+import {
+  createMeteoraMetadata,
+  creatorClaimLpDamm,
+  lockLpForCreatorDamm,
+  lockLpForPartnerDamm,
+  MigrateMeteoraParams,
+  migrateToMeteoraDamm,
+  partnerClaimLpDamm,
 } from "./instructions/meteoraMigration";
-import { expect } from "chai";
-import { SwapMode } from "../instructions";
+import {
+  ClaimTradeFeeParams,
+  claimTradingFee,
+  createConfigForSwapDamm,
+  createConfigForSwapDammDeprecated,
+  CreateConfigForSwapParams,
+  partnerWithdrawSurplus,
+} from "./instructions/partnerInstructions";
+import {
+  createPoolWithSplToken,
+  swap2,
+  Swap2Params,
+} from "./instructions/userInstructions";
 
 describe("Backwards compatibility - DAMM full flow", () => {
-	let context: ProgramTestContext;
-	let admin: Keypair;
-	let operator: Keypair;
-	let partner: Keypair;
-	let user: Keypair;
-	let poolCreator: Keypair;
-	let program: VirtualCurveProgram;
-	let config: PublicKey;
-	let virtualPool: PublicKey;
-	let virtualPoolState: Pool;
-	let dammConfig: PublicKey;
+  let svm: LiteSVM;
+  let admin: Keypair;
+  let operator: Keypair;
+  let partner: Keypair;
+  let user: Keypair;
+  let poolCreator: Keypair;
+  let program: VirtualCurveProgram;
+  let config: PublicKey;
+  let virtualPool: PublicKey;
+  let virtualPoolState: Pool;
+  let dammConfig: PublicKey;
 
-	before(async () => {
-		context = await startTest();
-		admin = context.payer;
-		operator = Keypair.generate();
-		partner = Keypair.generate();
-		user = Keypair.generate();
-		poolCreator = Keypair.generate();
-		const receivers = [
-			operator.publicKey,
-			partner.publicKey,
-			user.publicKey,
-			poolCreator.publicKey,
-		];
-		await fundSol(context.banksClient, admin, receivers);
-		program = createVirtualCurveProgram();
-	});
+  before(async () => {
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
+    program = createVirtualCurveProgram();
+  });
 
-	it("createConfigSplTokenForSwapDamm", async () => {
-		const params: CreateConfigForSwapParams = {
-			payer: partner,
-			leftoverReceiver: partner.publicKey,
-			feeClaimer: partner.publicKey,
-			quoteMint: NATIVE_MINT,
-		};
-		config = await createConfigForSwapDamm(context.banksClient, program, params);
-	});
+  it("createConfigSplTokenForSwapDamm with deprecated meteora damm migration option", async () => {
+    const params: CreateConfigForSwapParams = {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: NATIVE_MINT,
+    };
+    await expectThrowsAsync(async () => {
+      await createConfigForSwapDammDeprecated(svm, program, params);
+    }, getDbcProgramErrorCodeHexString("DeprecatedMigrationOption"));
+  });
 
-	it("initializeVirtualPoolWithSplToken", async () => {
-		virtualPool = await createPoolWithSplToken(context.banksClient, program, {
-			poolCreator,
-			payer: operator,
-			quoteMint: NATIVE_MINT,
-			config,
-		});
-		virtualPoolState = await getVirtualPool(
-			context.banksClient,
-			program,
-			virtualPool
-		);
+  it("createConfigSplTokenForSwapDamm", async () => {
+    const params: CreateConfigForSwapParams = {
+      payer: partner,
+      leftoverReceiver: partner.publicKey,
+      feeClaimer: partner.publicKey,
+      quoteMint: NATIVE_MINT,
+    };
+    config = await createConfigForSwapDamm(svm, program, params);
+  });
 
-		// validate freeze authority
-		const baseMintData = await getMint(
-			context.banksClient,
-			virtualPoolState.baseMint
-		);
-		expect(baseMintData.freezeAuthority.toString()).eq(
-			PublicKey.default.toString()
-		);
-		expect(baseMintData.mintAuthorityOption).eq(0);
-	});
+  it("initializeVirtualPoolWithSplToken", async () => {
+    virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint: NATIVE_MINT,
+      config,
+    });
+    setDeprecatedMeteoraDammConfig(svm, config);
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
-	it("swap2", async () => {
-		const params: Swap2Params = {
-			config,
-			payer: user,
-			pool: virtualPool,
-			inputTokenMint: NATIVE_MINT,
-			outputTokenMint: virtualPoolState.baseMint,
-			swapMode: SwapMode.PartialFill,
-			referralTokenAccount: null,
-		};
-		await swap2(context.banksClient, program, params);
-	});
+    // validate freeze authority
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
+    expect(baseMintData.freezeAuthority.toString()).eq(
+      PublicKey.default.toString()
+    );
+    expect(baseMintData.mintAuthorityOption).eq(0);
+  });
 
-	it("migrationMeteoraDammCreateMetadata", async () => {
-		await createMeteoraMetadata(context.banksClient, program, {
-			payer: admin,
-			virtualPool,
-			config,
-		});
-	});
+  it("swap2", async () => {
+    const params: Swap2Params = {
+      config,
+      payer: user,
+      pool: virtualPool,
+      inputTokenMint: NATIVE_MINT,
+      outputTokenMint: virtualPoolState.baseMint,
+      swapMode: SwapMode.PartialFill,
+      referralTokenAccount: null,
+    };
+    await swap2(svm, program, params);
+  });
 
-	it("migrateMeteoraDamm", async () => {
-		const poolAuthority = derivePoolAuthority();
+  it("migrationMeteoraDammCreateMetadata", async () => {
+    await createMeteoraMetadata(svm, program, {
+      payer: admin,
+      virtualPool,
+      config,
+    });
+  });
 
-		dammConfig = await createDammConfig(
-			context.banksClient,
-			admin,
-			poolAuthority
-		);
-		const migrationParams: MigrateMeteoraParams = {
-			payer: admin,
-			virtualPool,
-			dammConfig,
-		};
+  it("migrateMeteoraDamm", async () => {
+    const poolAuthority = derivePoolAuthority();
 
-		await migrateToMeteoraDamm(context.banksClient, program, migrationParams);
+    dammConfig = await createDammConfig(svm, admin, poolAuthority);
+    const migrationParams: MigrateMeteoraParams = {
+      payer: admin,
+      virtualPool,
+      dammConfig,
+    };
 
-		// validate mint authority
-		const baseMintData = await getMint(
-			context.banksClient,
-			virtualPoolState.baseMint
-		);
-		expect(baseMintData.mintAuthorityOption).eq(0);
-	});
+    await migrateToMeteoraDamm(svm, program, migrationParams);
 
-	it("migrateMeteoraDammLockLpToken - partner", async () => {
-		await lockLpForPartnerDamm(context.banksClient, program, {
-			payer: partner,
-			dammConfig,
-			virtualPool,
-		});
-	});
+    // validate mint authority
+    const baseMintData = getMint(svm, virtualPoolState.baseMint);
+    expect(baseMintData.mintAuthorityOption).eq(0);
+  });
 
-	it("migrateMeteoraDammLockLpToken - creator", async () => {
-		await lockLpForCreatorDamm(context.banksClient, program, {
-			payer: poolCreator,
-			dammConfig,
-			virtualPool,
-		});
-	});
+  it("migrateMeteoraDammLockLpToken - partner", async () => {
+    await lockLpForPartnerDamm(svm, program, {
+      payer: partner,
+      dammConfig,
+      virtualPool,
+    });
+  });
 
-	it("partnerWithdrawSurplus", async () => {
-		await partnerWithdrawSurplus(context.banksClient, program, {
-			feeClaimer: partner,
-			virtualPool,
-		});
-	});
+  it("migrateMeteoraDammLockLpToken - creator", async () => {
+    await lockLpForCreatorDamm(svm, program, {
+      payer: poolCreator,
+      dammConfig,
+      virtualPool,
+    });
+  });
 
-	it("creatorWithdrawSurplus", async () => {
-		await creatorWithdrawSurplus(context.banksClient, program, {
-			creator: poolCreator,
-			virtualPool,
-		});
-	});
+  it("partnerWithdrawSurplus", async () => {
+    await partnerWithdrawSurplus(svm, program, {
+      feeClaimer: partner,
+      virtualPool,
+    });
+  });
 
-	it("claimTradingFee", async () => {
-		const claimTradingFeeParams: ClaimTradeFeeParams = {
-			feeClaimer: partner,
-			pool: virtualPool,
-		};
-		await claimTradingFee(context.banksClient, program, claimTradingFeeParams);
-	});
+  it("creatorWithdrawSurplus", async () => {
+    await creatorWithdrawSurplus(svm, program, {
+      creator: poolCreator,
+      virtualPool,
+    });
+  });
 
-	it("migrateMeteoraDammClaimLpToken - partner", async () => {
-		await partnerClaimLpDamm(context.banksClient, program, {
-			payer: partner,
-			dammConfig,
-			virtualPool,
-		});
-	});
+  it("claimTradingFee", async () => {
+    const claimTradingFeeParams: ClaimTradeFeeParams = {
+      feeClaimer: partner,
+      pool: virtualPool,
+    };
+    await claimTradingFee(svm, program, claimTradingFeeParams);
+  });
 
-	it("migrateMeteoraDammClaimLpToken - creator", async () => {
-		await creatorClaimLpDamm(context.banksClient, program, {
-			payer: poolCreator,
-			dammConfig,
-			virtualPool,
-		});
-	});
+  it("migrateMeteoraDammClaimLpToken - partner", async () => {
+    await partnerClaimLpDamm(svm, program, {
+      payer: partner,
+      dammConfig,
+      virtualPool,
+    });
+  });
 
-	it("transferPoolCreator", async () => {
-		const newCreator = Keypair.generate().publicKey;
-		await transferCreator(context.banksClient, program, virtualPool, poolCreator, newCreator);
-	});
+  it("migrateMeteoraDammClaimLpToken - creator", async () => {
+    await creatorClaimLpDamm(svm, program, {
+      payer: poolCreator,
+      dammConfig,
+      virtualPool,
+    });
+  });
+
+  it("unauthorize transfer pool creator", async () => {
+    const errorCodeUnauthorized =
+      getDbcProgramErrorCodeHexString("Unauthorized");
+    const newCreator = Keypair.generate().publicKey;
+
+    // unauthorized pool creator claim trading fee
+    expectThrowsAsync(async () => {
+      await transferCreator(svm, program, virtualPool, partner, newCreator);
+    }, errorCodeUnauthorized);
+  });
+
+  it("transferPoolCreator", async () => {
+    const newCreator = Keypair.generate().publicKey;
+    await transferCreator(svm, program, virtualPool, poolCreator, newCreator);
+  });
 });

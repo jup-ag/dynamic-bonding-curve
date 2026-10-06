@@ -1,5 +1,4 @@
 import { Keypair, Transaction } from "@solana/web3.js";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   createConfig,
   createPoolWithSplToken,
@@ -11,9 +10,10 @@ import {
 import {
   createVirtualCurveProgram,
   designGraphCurve,
-  fundSol,
+  generateAndFund,
   getOrCreateAta,
-  startTest,
+  setDeprecatedRateLimiterConfig,
+  startSvm,
   warpSlotBy,
 } from "./utils";
 import { getVirtualPool } from "./utils/fetcher";
@@ -21,10 +21,11 @@ import { VirtualCurveProgram } from "./utils/types";
 
 import { BN } from "bn.js";
 import { expect } from "chai";
+import { FailedTransactionMetadata, LiteSVM } from "litesvm";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Rate limiter", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -33,19 +34,12 @@ describe("Rate limiter", () => {
   let program: VirtualCurveProgram;
 
   before(async () => {
-    context = await startTest();
-    admin = context.payer;
-    operator = Keypair.generate();
-    partner = Keypair.generate();
-    user = Keypair.generate();
-    poolCreator = Keypair.generate();
-    const receivers = [
-      operator.publicKey,
-      partner.publicKey,
-      user.publicKey,
-      poolCreator.publicKey,
-    ];
-    await fundSol(context.banksClient, admin, receivers);
+    svm = startSvm();
+    admin = generateAndFund(svm);
+    operator = generateAndFund(svm);
+    partner = generateAndFund(svm);
+    user = generateAndFund(svm);
+    poolCreator = generateAndFund(svm);
     program = createVirtualCurveProgram();
   });
 
@@ -64,13 +58,8 @@ describe("Rate limiter", () => {
       cliffUnlockAmount: new BN(123456),
     };
     let leftOver = 10_000;
-    let migrationOption = 0;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let migrationOption = 1;
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let referenceAmount = new BN(1_000_000_000);
     let maxRateLimiterDuration = new BN(10);
     let instructionParams = designGraphCurve(
@@ -87,21 +76,21 @@ describe("Rate limiter", () => {
       kFactor,
       {
         cliffFeeNumerator: new BN(10_000_000), // 100bps
-        firstFactor: 10, // 10 bps
-        secondFactor: maxRateLimiterDuration, // 10 slot
-        thirdFactor: referenceAmount, // 1 sol
-        baseFeeMode: 2, // rate limiter mode
+        firstFactor: 0,
+        secondFactor: new BN(0),
+        thirdFactor: new BN(0),
+        baseFeeMode: 0, // override to rate limiter later
       }
     );
-    let config = await createConfig(context.banksClient, program, {
+    let config = await createConfig(svm, program, {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     });
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -110,29 +99,29 @@ describe("Rate limiter", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
+
+    setDeprecatedRateLimiterConfig(svm, config, {
+      cliffFeeNumerator: new BN(10_000_000), // 100bps
+      feeIncrementBps: 10, // 10 bps
+      maxLimiterDuration: maxRateLimiterDuration, // 10 slot
+      referenceAmount, // 1 sol
+    });
+
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     // swap with 1 SOL
-    await swap(context.banksClient, program, {
+    await swap(svm, program, {
       config,
       payer: user,
       pool: virtualPool,
@@ -144,11 +133,7 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     let totalTradingFee = virtualPoolState.partnerQuoteFee.add(
       virtualPoolState.protocolQuoteFee
@@ -158,7 +143,7 @@ describe("Rate limiter", () => {
     );
 
     // swap with 2 SOL
-    await swap(context.banksClient, program, {
+    await swap(svm, program, {
       config,
       payer: user,
       pool: virtualPool,
@@ -170,11 +155,7 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     let totalTradingFee1 = virtualPoolState.partnerQuoteFee.add(
       virtualPoolState.protocolQuoteFee
@@ -185,10 +166,10 @@ describe("Rate limiter", () => {
     );
 
     // wait until time pass the 10 slot
-    await warpSlotBy(context, maxRateLimiterDuration.add(new BN(1)));
+    warpSlotBy(svm, maxRateLimiterDuration.add(new BN(1)));
 
     // swap with 2 SOL
-    await swap(context.banksClient, program, {
+    await swap(svm, program, {
       config,
       payer: user,
       pool: virtualPool,
@@ -200,11 +181,7 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     let totalTradingFee2 = virtualPoolState.partnerQuoteFee.add(
       virtualPoolState.protocolQuoteFee
@@ -230,13 +207,8 @@ describe("Rate limiter", () => {
       cliffUnlockAmount: new BN(123456),
     };
     let leftOver = 10_000;
-    let migrationOption = 0;
-    let quoteMint = await createToken(
-      context.banksClient,
-      admin,
-      admin.publicKey,
-      tokenQuoteDecimal
-    );
+    let migrationOption = 1;
+    let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let referenceAmount = new BN(1_000_000_000);
     let maxRateLimiterDuration = new BN(10);
     let instructionParams = designGraphCurve(
@@ -253,21 +225,21 @@ describe("Rate limiter", () => {
       kFactor,
       {
         cliffFeeNumerator: new BN(10_000_000), // 100bps
-        firstFactor: 10, // 10 bps
-        secondFactor: maxRateLimiterDuration, // 10 slot
-        thirdFactor: referenceAmount, // 1 sol
-        baseFeeMode: 2, // rate limiter mode
+        firstFactor: 0,
+        secondFactor: new BN(0),
+        thirdFactor: new BN(0),
+        baseFeeMode: 0, // override to rate limiter later
       }
     );
-    let config = await createConfig(context.banksClient, program, {
+    let config = await createConfig(svm, program, {
       payer: partner,
       leftoverReceiver: partner.publicKey,
       feeClaimer: partner.publicKey,
       quoteMint,
       instructionParams,
     });
-    await mintSplTokenTo(
-      context.banksClient,
+    mintSplTokenTo(
+      svm,
       user,
       quoteMint,
       admin,
@@ -276,84 +248,73 @@ describe("Rate limiter", () => {
     );
 
     // create pool
-    let virtualPool = await createPoolWithSplToken(
-      context.banksClient,
-      program,
-      {
-        poolCreator,
-        payer: operator,
-        quoteMint,
-        config,
-        instructionParams: {
-          name: "test token spl",
-          symbol: "TEST",
-          uri: "abc.com",
-        },
-      }
-    );
-    let virtualPoolState = await getVirtualPool(
-      context.banksClient,
-      program,
-      virtualPool
-    );
+    let virtualPool = await createPoolWithSplToken(svm, program, {
+      poolCreator,
+      payer: operator,
+      quoteMint,
+      config,
+      instructionParams: {
+        name: "test token spl",
+        symbol: "TEST",
+        uri: "abc.com",
+      },
+    });
 
-    await getOrCreateAta(
-      context.banksClient,
-      user,
-      virtualPoolState.baseMint,
-      user.publicKey
-    );
+    setDeprecatedRateLimiterConfig(svm, config, {
+      cliffFeeNumerator: new BN(10_000_000), // 100bps
+      feeIncrementBps: 10, // 10 bps
+      maxLimiterDuration: maxRateLimiterDuration, // 10 slot
+      referenceAmount, // 1 sol
+    });
+
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
+
+    getOrCreateAta(svm, user, virtualPoolState.baseMint, user.publicKey);
 
     // swap with 1 SOL
-    const swapInstruction = await getSwapInstruction(
-      context.banksClient,
-      program,
-      {
-        config,
-        payer: user,
-        pool: virtualPool,
-        inputTokenMint: quoteMint,
-        outputTokenMint: virtualPoolState.baseMint,
-        amountIn: referenceAmount,
-        minimumAmountOut: new BN(0),
-        swapMode: SwapMode.ExactIn,
-        referralTokenAccount: null,
-      }
-    );
+    const swapInstruction = await getSwapInstruction(svm, program, {
+      config,
+      payer: user,
+      pool: virtualPool,
+      inputTokenMint: quoteMint,
+      outputTokenMint: virtualPoolState.baseMint,
+      amountIn: referenceAmount,
+      minimumAmountOut: new BN(0),
+      swapMode: SwapMode.ExactIn,
+      referralTokenAccount: null,
+    });
 
-    const swap2Instruction = await getSwap2Instruction(
-      context.banksClient,
-      program,
-      {
-        config,
-        payer: user,
-        pool: virtualPool,
-        inputTokenMint: quoteMint,
-        outputTokenMint: virtualPoolState.baseMint,
-        amountIn: referenceAmount,
-        minimumAmountOut: new BN(0),
-        swapMode: SwapMode.ExactIn,
-        referralTokenAccount: null,
-      }
-    );
+    const swap2Instruction = await getSwap2Instruction(svm, program, {
+      config,
+      payer: user,
+      pool: virtualPool,
+      inputTokenMint: quoteMint,
+      outputTokenMint: virtualPoolState.baseMint,
+      amountIn: referenceAmount,
+      minimumAmountOut: new BN(0),
+      swapMode: SwapMode.ExactIn,
+      referralTokenAccount: null,
+    });
 
     let transaction = new Transaction();
     transaction.add(swapInstruction);
     transaction.add(swap2Instruction);
 
-    transaction.recentBlockhash = (
-      await context.banksClient.getLatestBlockhash()
-    )[0];
+    transaction.recentBlockhash = svm.latestBlockhash();
     transaction.sign(user);
 
-    const transactionMeta = await context.banksClient.tryProcessTransaction(
-      transaction
-    );
+    const transactionMeta = svm.sendTransaction(transaction);
+    expect(transactionMeta).instanceOf(FailedTransactionMetadata);
 
     expect(
-      transactionMeta.meta.logMessages.filter((log) =>
-        log.includes("Fail to validate single swap instruction in rate limiter")
-      ).length
+      (transactionMeta as FailedTransactionMetadata)
+        .meta()
+        .logs()
+        .filter((log) =>
+          log.includes(
+            "Fail to validate single swap instruction in rate limiter"
+          )
+        ).length
     ).eq(1);
   });
 });

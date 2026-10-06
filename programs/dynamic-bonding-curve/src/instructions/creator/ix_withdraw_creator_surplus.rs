@@ -2,10 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda,
-    state::{PoolConfig, VirtualPool},
-    token::transfer_from_pool,
-    EvtCreatorWithdrawSurplus, PoolError,
+    const_pda, event::EvtCreatorWithdrawSurplus, token::transfer_token_from_pool_authority,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for creator withdraw surplus
@@ -18,16 +16,12 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = quote_vault,
-        has_one = config,
-        has_one = creator,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// The receiver token account
     #[account(mut)]
@@ -47,8 +41,24 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
 }
 
 pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     // Make sure pool has been completed
     require!(
@@ -64,14 +74,14 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
     let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
     let creator_surplus_amount = pool.get_creator_surplus(&config, total_surplus)?;
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
-        &ctx.accounts.token_quote_account,
+        ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         creator_surplus_amount,
-        const_pda::pool_authority::BUMP,
+        None,
     )?;
 
     // update creator withdraw surplus

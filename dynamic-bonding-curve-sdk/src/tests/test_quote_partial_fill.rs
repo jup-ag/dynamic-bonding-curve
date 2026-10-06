@@ -22,10 +22,15 @@ fn test_quote_partial_fill_fee_in_quote_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     let exact_in_swap_result = quote_exact_in(
         &pool,
@@ -33,10 +38,15 @@ fn test_quote_partial_fill_fee_in_quote_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     assert!(partial_fill_swap_result.eq(&exact_in_swap_result));
 }
@@ -58,10 +68,15 @@ fn test_quote_partial_fill_fee_in_quote_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     let exact_in_swap_result = quote_exact_in(
         &pool,
@@ -69,10 +84,15 @@ fn test_quote_partial_fill_fee_in_quote_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
     assert!(partial_fill_swap_result.eq(&exact_in_swap_result));
 }
 
@@ -94,10 +114,15 @@ fn test_quote_partial_fill_fee_in_both_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     let exact_in_swap_result = quote_exact_in(
         &pool,
@@ -105,10 +130,15 @@ fn test_quote_partial_fill_fee_in_both_from_base_for_quote() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     assert!(partial_fill_swap_result.eq(&exact_in_swap_result));
 }
@@ -130,10 +160,15 @@ fn test_quote_partial_fill_fee_in_both_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
 
     let exact_in_swap_result = quote_exact_in(
         &pool,
@@ -141,9 +176,14 @@ fn test_quote_partial_fill_fee_in_both_from_quote_to_base() {
         swap_base_for_quote,
         current_timestamp,
         current_slot,
+        0,
+        None,
+        None,
         input_amount,
         false,
+        false,
     )
-    .unwrap();
+    .unwrap()
+    .swap_result;
     assert!(partial_fill_swap_result.eq(&exact_in_swap_result));
 }

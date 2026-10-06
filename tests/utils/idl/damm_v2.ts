@@ -8,7 +8,7 @@ export type CpAmm = {
   "address": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
   "metadata": {
     "name": "cpAmm",
-    "version": "0.1.1",
+    "version": "0.2.5",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -96,9 +96,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -115,33 +115,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -155,164 +129,6 @@ export type CpAmm = {
               "name": "addLiquidityParameters"
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "claimPartnerFee",
-      "discriminator": [
-        97,
-        206,
-        39,
-        105,
-        94,
-        94,
-        126,
-        148
-      ],
-      "accounts": [
-        {
-          "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "pool",
-          "writable": true
-        },
-        {
-          "name": "tokenAAccount",
-          "docs": [
-            "The treasury token a account"
-          ],
-          "writable": true
-        },
-        {
-          "name": "tokenBAccount",
-          "docs": [
-            "The treasury token b account"
-          ],
-          "writable": true
-        },
-        {
-          "name": "tokenAVault",
-          "docs": [
-            "The vault token account for input token"
-          ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenBVault",
-          "docs": [
-            "The vault token account for output token"
-          ],
-          "writable": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenAMint",
-          "docs": [
-            "The mint of token a"
-          ],
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenBMint",
-          "docs": [
-            "The mint of token b"
-          ],
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "partner",
-          "signer": true,
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenAProgram",
-          "docs": [
-            "Token a program"
-          ]
-        },
-        {
-          "name": "tokenBProgram",
-          "docs": [
-            "Token b program"
-          ]
-        },
-        {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
-        }
-      ],
-      "args": [
-        {
-          "name": "maxAmountA",
-          "type": "u64"
-        },
-        {
-          "name": "maxAmountB",
-          "type": "u64"
         }
       ]
     },
@@ -331,29 +147,7 @@ export type CpAmm = {
       "accounts": [
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -424,9 +218,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -443,33 +237,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -478,43 +246,42 @@ export type CpAmm = {
       "args": []
     },
     {
-      "name": "claimProtocolFee",
+      "name": "claimProtocolFee2",
       "discriminator": [
-        165,
-        228,
-        133,
-        48,
-        99,
-        249,
-        255,
-        33
+        235,
+        194,
+        54,
+        69,
+        65,
+        10,
+        236,
+        112
       ],
       "accounts": [
         {
-          "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "receiverTokenAccount",
+          "docs": [
+            "receiver token account for the claimed token. validated through the protocol_fee program"
+          ],
+          "writable": true
+        },
+        {
+          "name": "tokenAMint",
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "tokenBMint",
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "tokenAProgram"
+        },
+        {
+          "name": "tokenBProgram"
         },
         {
           "name": "pool",
@@ -522,9 +289,6 @@ export type CpAmm = {
         },
         {
           "name": "tokenAVault",
-          "docs": [
-            "The vault token account for input token"
-          ],
           "writable": true,
           "relations": [
             "pool"
@@ -532,280 +296,27 @@ export type CpAmm = {
         },
         {
           "name": "tokenBVault",
-          "docs": [
-            "The vault token account for output token"
-          ],
           "writable": true,
           "relations": [
             "pool"
           ]
         },
         {
-          "name": "tokenAMint",
-          "docs": [
-            "The mint of token a"
-          ],
-          "relations": [
-            "pool"
-          ]
+          "name": "poolAuthority",
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
-          "name": "tokenBMint",
-          "docs": [
-            "The mint of token b"
-          ],
-          "relations": [
-            "pool"
-          ]
-        },
-        {
-          "name": "tokenAAccount",
-          "docs": [
-            "The treasury token a account"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
-                  173,
-                  254,
-                  250,
-                  10,
-                  80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
-                  78,
-                  53,
-                  175,
-                  188,
-                  85
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "tokenAProgram"
-              },
-              {
-                "kind": "account",
-                "path": "tokenAMint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "tokenBAccount",
-          "docs": [
-            "The treasury token b account"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
-                  173,
-                  254,
-                  250,
-                  10,
-                  80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
-                  78,
-                  53,
-                  175,
-                  188,
-                  85
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "tokenBProgram"
-              },
-              {
-                "kind": "account",
-                "path": "tokenBMint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "claimFeeOperator",
-          "docs": [
-            "Claim fee operator"
-          ]
-        },
-        {
-          "name": "operator",
-          "docs": [
-            "Operator"
-          ],
+          "name": "signer",
           "signer": true,
-          "relations": [
-            "claimFeeOperator"
-          ]
-        },
-        {
-          "name": "tokenAProgram",
-          "docs": [
-            "Token a program"
-          ]
-        },
-        {
-          "name": "tokenBProgram",
-          "docs": [
-            "Token b program"
-          ]
-        },
-        {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
+          "address": "FkU5rQCWQM131skHCpcEbK8P1JrQGsBgqXe55w525SSF"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "maxAmount",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "claimReward",
@@ -822,29 +333,7 @@ export type CpAmm = {
       "accounts": [
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -878,9 +367,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -888,33 +377,7 @@ export type CpAmm = {
           "name": "tokenProgram"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -924,68 +387,12 @@ export type CpAmm = {
         {
           "name": "rewardIndex",
           "type": "u8"
+        },
+        {
+          "name": "skipReward",
+          "type": "u8"
         }
       ]
-    },
-    {
-      "name": "closeClaimFeeOperator",
-      "discriminator": [
-        38,
-        134,
-        82,
-        216,
-        95,
-        124,
-        17,
-        99
-      ],
-      "accounts": [
-        {
-          "name": "claimFeeOperator",
-          "writable": true
-        },
-        {
-          "name": "rentReceiver",
-          "writable": true
-        },
-        {
-          "name": "admin",
-          "signer": true
-        },
-        {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "program"
-        }
-      ],
-      "args": []
     },
     {
       "name": "closeConfig",
@@ -1005,8 +412,10 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "admin",
-          "writable": true,
+          "name": "operator"
+        },
+        {
+          "name": "signer",
           "signer": true
         },
         {
@@ -1014,33 +423,41 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeOperatorAccount",
+      "discriminator": [
+        171,
+        9,
+        213,
+        74,
+        120,
+        23,
+        3,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "writable": true
+        },
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "rentReceiver",
+          "writable": true
+        },
+        {
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1088,29 +505,7 @@ export type CpAmm = {
         },
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "rentReceiver",
@@ -1131,33 +526,7 @@ export type CpAmm = {
           "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1166,86 +535,35 @@ export type CpAmm = {
       "args": []
     },
     {
-      "name": "createClaimFeeOperator",
+      "name": "closeTokenBadge",
       "discriminator": [
-        169,
-        62,
-        207,
-        107,
-        58,
-        187,
-        162,
-        109
+        108,
+        146,
+        86,
+        110,
+        179,
+        254,
+        10,
+        104
       ],
       "accounts": [
         {
-          "name": "claimFeeOperator",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  102,
-                  95,
-                  111,
-                  112,
-                  101,
-                  114,
-                  97,
-                  116,
-                  111,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "operator"
-              }
-            ]
-          }
+          "name": "tokenBadge",
+          "writable": true
         },
         {
           "name": "operator"
         },
         {
-          "name": "admin",
-          "writable": true,
+          "name": "signer",
           "signer": true
         },
         {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "name": "rentReceiver",
+          "writable": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1256,7 +574,7 @@ export type CpAmm = {
     {
       "name": "createConfig",
       "docs": [
-        "ADMIN FUNCTIONS /////"
+        "OPERATOR FUNCTIONS /////"
       ],
       "discriminator": [
         201,
@@ -1293,7 +611,14 @@ export type CpAmm = {
           }
         },
         {
-          "name": "admin",
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "payer",
           "writable": true,
           "signer": true
         },
@@ -1302,33 +627,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1386,7 +685,14 @@ export type CpAmm = {
           }
         },
         {
-          "name": "admin",
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "payer",
           "writable": true,
           "signer": true
         },
@@ -1395,33 +701,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1439,6 +719,77 @@ export type CpAmm = {
               "name": "dynamicConfigParameters"
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "createOperatorAccount",
+      "docs": [
+        "ADMIN FUNCTIONS /////"
+      ],
+      "discriminator": [
+        221,
+        64,
+        246,
+        149,
+        240,
+        153,
+        229,
+        163
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  112,
+                  101,
+                  114,
+                  97,
+                  116,
+                  111,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "whitelistedAddress"
+              }
+            ]
+          }
+        },
+        {
+          "name": "whitelistedAddress"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "permission",
+          "type": "u128"
         }
       ]
     },
@@ -1537,29 +888,7 @@ export type CpAmm = {
         },
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "payer",
@@ -1581,33 +910,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1660,7 +963,14 @@ export type CpAmm = {
           "name": "tokenMint"
         },
         {
-          "name": "admin",
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "payer",
           "writable": true,
           "signer": true
         },
@@ -1669,36 +979,143 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "dummyIx",
+      "discriminator": [
+        234,
+        95,
+        176,
+        185,
+        7,
+        42,
+        35,
+        159
+      ],
+      "accounts": [
+        {
+          "name": "podAlignedFeeTimeScheduler"
+        },
+        {
+          "name": "podAlignedFeeRateLimiter"
+        },
+        {
+          "name": "podAlignedFeeMarketCapScheduler"
+        }
+      ],
+      "args": [
+        {
+          "name": "ixs",
+          "type": {
+            "defined": {
+              "name": "dummyParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fixConfigFeeParams",
+      "discriminator": [
+        38,
+        30,
+        216,
+        81,
+        250,
+        177,
+        243,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "baseFeeParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fixPoolFeeParams",
+      "discriminator": [
+        132,
+        98,
+        81,
+        196,
+        44,
+        58,
+        120,
+        193
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "baseFeeParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fixPoolLayoutVersion",
+      "discriminator": [
+        166,
+        158,
+        69,
+        35,
+        81,
+        167,
+        200,
+        215
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
         }
       ],
       "args": []
@@ -1739,33 +1156,7 @@ export type CpAmm = {
           "name": "tokenProgram"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1860,29 +1251,7 @@ export type CpAmm = {
         },
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -2036,33 +1405,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2162,29 +1505,7 @@ export type CpAmm = {
         },
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -2338,33 +1659,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2468,29 +1763,7 @@ export type CpAmm = {
         },
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -2644,33 +1917,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2702,29 +1949,7 @@ export type CpAmm = {
       "accounts": [
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -2767,7 +1992,11 @@ export type CpAmm = {
           "name": "rewardMint"
         },
         {
-          "name": "admin",
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "payer",
           "writable": true,
           "signer": true
         },
@@ -2779,33 +2008,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2823,6 +2026,60 @@ export type CpAmm = {
         {
           "name": "funder",
           "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "lockInnerPosition",
+      "discriminator": [
+        72,
+        19,
+        49,
+        204,
+        18,
+        122,
+        23,
+        90
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "relations": [
+            "position"
+          ]
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "positionNftAccount",
+          "docs": [
+            "The token account for nft"
+          ]
+        },
+        {
+          "name": "signer",
+          "docs": [
+            "Signer"
+          ],
+          "signer": true
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "vestingParameters"
+            }
+          }
         }
       ]
     },
@@ -2861,9 +2118,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -2877,33 +2134,7 @@ export type CpAmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2951,40 +2182,14 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3047,29 +2252,7 @@ export type CpAmm = {
       "accounts": [
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -3141,9 +2324,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -3160,33 +2343,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3218,29 +2375,7 @@ export type CpAmm = {
       "accounts": [
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -3312,9 +2447,9 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "owner",
+          "name": "signer",
           "docs": [
-            "owner of position"
+            "Signer"
           ],
           "signer": true
         },
@@ -3331,33 +2466,7 @@ export type CpAmm = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3392,37 +2501,14 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "admin",
+          "name": "operator"
+        },
+        {
+          "name": "signer",
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3432,6 +2518,160 @@ export type CpAmm = {
         {
           "name": "status",
           "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "splitPosition",
+      "discriminator": [
+        172,
+        241,
+        221,
+        138,
+        161,
+        29,
+        253,
+        42
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "relations": [
+            "firstPosition",
+            "secondPosition"
+          ]
+        },
+        {
+          "name": "firstPosition",
+          "docs": [
+            "The first position"
+          ],
+          "writable": true
+        },
+        {
+          "name": "firstPositionNftAccount",
+          "docs": [
+            "The token account for position nft"
+          ]
+        },
+        {
+          "name": "secondPosition",
+          "docs": [
+            "The second position"
+          ],
+          "writable": true
+        },
+        {
+          "name": "secondPositionNftAccount",
+          "docs": [
+            "The token account for position nft"
+          ]
+        },
+        {
+          "name": "firstOwner",
+          "docs": [
+            "Owner of first position"
+          ],
+          "signer": true
+        },
+        {
+          "name": "secondOwner",
+          "docs": [
+            "Owner of second position"
+          ],
+          "signer": true
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "splitPositionParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "splitPosition2",
+      "discriminator": [
+        221,
+        147,
+        228,
+        207,
+        140,
+        212,
+        17,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "relations": [
+            "firstPosition",
+            "secondPosition"
+          ]
+        },
+        {
+          "name": "firstPosition",
+          "docs": [
+            "The first position"
+          ],
+          "writable": true
+        },
+        {
+          "name": "firstPositionNftAccount",
+          "docs": [
+            "The token account for position nft"
+          ]
+        },
+        {
+          "name": "secondPosition",
+          "docs": [
+            "The second position"
+          ],
+          "writable": true
+        },
+        {
+          "name": "secondPositionNftAccount",
+          "docs": [
+            "The token account for position nft"
+          ]
+        },
+        {
+          "name": "firstOwner",
+          "docs": [
+            "Owner of first position"
+          ],
+          "signer": true
+        },
+        {
+          "name": "secondOwner",
+          "docs": [
+            "Owner of second position"
+          ],
+          "signer": true
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "numerator",
+          "type": "u32"
         }
       ]
     },
@@ -3450,29 +2690,7 @@ export type CpAmm = {
       "accounts": [
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -3555,33 +2773,7 @@ export type CpAmm = {
           "optional": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3593,6 +2785,204 @@ export type CpAmm = {
           "type": {
             "defined": {
               "name": "swapParameters"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "swap2",
+      "discriminator": [
+        65,
+        75,
+        63,
+        76,
+        235,
+        91,
+        91,
+        136
+      ],
+      "accounts": [
+        {
+          "name": "poolAuthority",
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "inputTokenAccount",
+          "docs": [
+            "The user token account for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "outputTokenAccount",
+          "docs": [
+            "The user token account for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "tokenAVault",
+          "docs": [
+            "The vault token account for input token"
+          ],
+          "writable": true,
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "tokenBVault",
+          "docs": [
+            "The vault token account for output token"
+          ],
+          "writable": true,
+          "relations": [
+            "pool"
+          ]
+        },
+        {
+          "name": "tokenAMint",
+          "docs": [
+            "The mint of token a"
+          ]
+        },
+        {
+          "name": "tokenBMint",
+          "docs": [
+            "The mint of token b"
+          ]
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "The user performing the swap"
+          ],
+          "signer": true
+        },
+        {
+          "name": "tokenAProgram",
+          "docs": [
+            "Token a program"
+          ]
+        },
+        {
+          "name": "tokenBProgram",
+          "docs": [
+            "Token b program"
+          ]
+        },
+        {
+          "name": "referralTokenAccount",
+          "docs": [
+            "referral token account"
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "swapParameters2"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateDelegatePermission",
+      "discriminator": [
+        175,
+        165,
+        56,
+        64,
+        0,
+        251,
+        89,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "positionNftAccount",
+          "docs": [
+            "The token account for nft"
+          ]
+        },
+        {
+          "name": "owner",
+          "signer": true
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "permission",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "updatePoolFees",
+      "discriminator": [
+        118,
+        217,
+        203,
+        179,
+        60,
+        8,
+        70,
+        89
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "operator"
+        },
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "updatePoolFeesParameters"
             }
           }
         }
@@ -3616,37 +3006,11 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "admin",
+          "name": "signer",
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3681,37 +3045,11 @@ export type CpAmm = {
           "writable": true
         },
         {
-          "name": "admin",
+          "name": "signer",
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3729,43 +3067,21 @@ export type CpAmm = {
       ]
     },
     {
-      "name": "withdrawIneligibleReward",
+      "name": "withdrawDeadLiquidityReward",
       "discriminator": [
-        148,
-        206,
-        42,
-        195,
-        247,
-        49,
-        103,
-        8
+        121,
+        99,
+        224,
+        91,
+        178,
+        14,
+        22,
+        132
       ],
       "accounts": [
         {
           "name": "poolAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
         },
         {
           "name": "pool",
@@ -3790,33 +3106,60 @@ export type CpAmm = {
           "name": "tokenProgram"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardIndex",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "withdrawIneligibleReward",
+      "discriminator": [
+        148,
+        206,
+        42,
+        195,
+        247,
+        49,
+        103,
+        8
+      ],
+      "accounts": [
+        {
+          "name": "poolAuthority",
+          "address": "HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC"
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "rewardVault",
+          "writable": true
+        },
+        {
+          "name": "rewardMint"
+        },
+        {
+          "name": "funderTokenAccount",
+          "writable": true
+        },
+        {
+          "name": "funder",
+          "signer": true
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3832,19 +3175,6 @@ export type CpAmm = {
   ],
   "accounts": [
     {
-      "name": "claimFeeOperator",
-      "discriminator": [
-        166,
-        48,
-        134,
-        86,
-        34,
-        200,
-        188,
-        150
-      ]
-    },
-    {
       "name": "config",
       "discriminator": [
         155,
@@ -3855,6 +3185,58 @@ export type CpAmm = {
         250,
         204,
         130
+      ]
+    },
+    {
+      "name": "operator",
+      "discriminator": [
+        219,
+        31,
+        188,
+        145,
+        69,
+        139,
+        204,
+        117
+      ]
+    },
+    {
+      "name": "podAlignedFeeMarketCapScheduler",
+      "discriminator": [
+        251,
+        130,
+        208,
+        253,
+        245,
+        27,
+        145,
+        203
+      ]
+    },
+    {
+      "name": "podAlignedFeeRateLimiter",
+      "discriminator": [
+        160,
+        219,
+        8,
+        251,
+        179,
+        7,
+        16,
+        117
+      ]
+    },
+    {
+      "name": "podAlignedFeeTimeScheduler",
+      "discriminator": [
+        239,
+        132,
+        138,
+        213,
+        67,
+        154,
+        130,
+        70
       ]
     },
     {
@@ -3912,32 +3294,6 @@ export type CpAmm = {
   ],
   "events": [
     {
-      "name": "evtAddLiquidity",
-      "discriminator": [
-        175,
-        242,
-        8,
-        157,
-        30,
-        247,
-        185,
-        169
-      ]
-    },
-    {
-      "name": "evtClaimPartnerFee",
-      "discriminator": [
-        118,
-        99,
-        77,
-        10,
-        226,
-        1,
-        1,
-        87
-      ]
-    },
-    {
       "name": "evtClaimPositionFee",
       "discriminator": [
         198,
@@ -3951,16 +3307,16 @@ export type CpAmm = {
       ]
     },
     {
-      "name": "evtClaimProtocolFee",
+      "name": "evtClaimProtocolFee2",
       "discriminator": [
-        186,
-        244,
-        75,
-        251,
-        188,
-        13,
-        25,
-        33
+        187,
+        133,
+        66,
+        9,
+        205,
+        161,
+        84,
+        13
       ]
     },
     {
@@ -3974,19 +3330,6 @@ export type CpAmm = {
         188,
         215,
         231
-      ]
-    },
-    {
-      "name": "evtCloseClaimFeeOperator",
-      "discriminator": [
-        111,
-        39,
-        37,
-        55,
-        110,
-        216,
-        194,
-        23
       ]
     },
     {
@@ -4013,19 +3356,6 @@ export type CpAmm = {
         142,
         214,
         178
-      ]
-    },
-    {
-      "name": "evtCreateClaimFeeOperator",
-      "discriminator": [
-        21,
-        6,
-        153,
-        120,
-        68,
-        116,
-        28,
-        177
       ]
     },
     {
@@ -4120,6 +3450,19 @@ export type CpAmm = {
       ]
     },
     {
+      "name": "evtLiquidityChange",
+      "discriminator": [
+        197,
+        171,
+        78,
+        127,
+        224,
+        211,
+        87,
+        13
+      ]
+    },
+    {
       "name": "evtLockPosition",
       "discriminator": [
         168,
@@ -4146,19 +3489,6 @@ export type CpAmm = {
       ]
     },
     {
-      "name": "evtRemoveLiquidity",
-      "discriminator": [
-        87,
-        46,
-        88,
-        98,
-        175,
-        96,
-        34,
-        91
-      ]
-    },
-    {
       "name": "evtSetPoolStatus",
       "discriminator": [
         100,
@@ -4172,16 +3502,68 @@ export type CpAmm = {
       ]
     },
     {
-      "name": "evtSwap",
+      "name": "evtSplitPosition2",
       "discriminator": [
-        27,
-        60,
-        21,
-        213,
-        138,
-        170,
-        187,
-        147
+        165,
+        32,
+        203,
+        174,
+        72,
+        100,
+        233,
+        103
+      ]
+    },
+    {
+      "name": "evtSplitPosition3",
+      "discriminator": [
+        232,
+        117,
+        190,
+        218,
+        85,
+        162,
+        207,
+        78
+      ]
+    },
+    {
+      "name": "evtSwap2",
+      "discriminator": [
+        189,
+        66,
+        51,
+        168,
+        38,
+        80,
+        117,
+        153
+      ]
+    },
+    {
+      "name": "evtUpdateDelegatePermission",
+      "discriminator": [
+        66,
+        188,
+        75,
+        151,
+        150,
+        232,
+        87,
+        93
+      ]
+    },
+    {
+      "name": "evtUpdatePoolFees",
+      "discriminator": [
+        76,
+        165,
+        246,
+        102,
+        102,
+        217,
+        156,
+        44
       ]
     },
     {
@@ -4208,6 +3590,19 @@ export type CpAmm = {
         115,
         246,
         146
+      ]
+    },
+    {
+      "name": "evtWithdrawDeadLiquidityReward",
+      "discriminator": [
+        228,
+        66,
+        150,
+        195,
+        42,
+        62,
+        163,
+        13
       ]
     },
     {
@@ -4434,6 +3829,161 @@ export type CpAmm = {
       "code": 6041,
       "name": "invalidConfigType",
       "msg": "Invalid config type"
+    },
+    {
+      "code": 6042,
+      "name": "invalidPoolCreator",
+      "msg": "Invalid pool creator"
+    },
+    {
+      "code": 6043,
+      "name": "rewardVaultFrozenSkipRequired",
+      "msg": "Reward vault is frozen, must skip reward to proceed"
+    },
+    {
+      "code": 6044,
+      "name": "invalidSplitPositionParameters",
+      "msg": "Invalid parameters for split position"
+    },
+    {
+      "code": 6045,
+      "name": "unsupportPositionHasVestingLock",
+      "msg": "Unsupported split position has vesting lock"
+    },
+    {
+      "code": 6046,
+      "name": "samePosition",
+      "msg": "Same position"
+    },
+    {
+      "code": 6047,
+      "name": "invalidBaseFeeMode",
+      "msg": "Invalid base fee mode"
+    },
+    {
+      "code": 6048,
+      "name": "invalidFeeRateLimiter",
+      "msg": "Invalid fee rate limiter"
+    },
+    {
+      "code": 6049,
+      "name": "failToValidateSingleSwapInstruction",
+      "msg": "Fail to validate single swap instruction in rate limiter"
+    },
+    {
+      "code": 6050,
+      "name": "invalidFeeTimeScheduler",
+      "msg": "Invalid fee scheduler"
+    },
+    {
+      "code": 6051,
+      "name": "undeterminedError",
+      "msg": "Undetermined error"
+    },
+    {
+      "code": 6052,
+      "name": "invalidPoolVersion",
+      "msg": "Invalid pool version"
+    },
+    {
+      "code": 6053,
+      "name": "invalidAuthority",
+      "msg": "Invalid authority to do that action"
+    },
+    {
+      "code": 6054,
+      "name": "invalidPermission",
+      "msg": "Invalid permission"
+    },
+    {
+      "code": 6055,
+      "name": "invalidFeeMarketCapScheduler",
+      "msg": "Invalid fee market cap scheduler"
+    },
+    {
+      "code": 6056,
+      "name": "cannotUpdateBaseFee",
+      "msg": "Cannot update base fee"
+    },
+    {
+      "code": 6057,
+      "name": "invalidDynamicFeeParameters",
+      "msg": "Invalid dynamic fee parameters"
+    },
+    {
+      "code": 6058,
+      "name": "invalidUpdatePoolFeesParameters",
+      "msg": "Invalid update pool fees parameters"
+    },
+    {
+      "code": 6059,
+      "name": "missingOperatorAccount",
+      "msg": "Missing operator account"
+    },
+    {
+      "code": 6060,
+      "name": "incorrectAta",
+      "msg": "Incorrect ATA"
+    },
+    {
+      "code": 6061,
+      "name": "invalidZapOutParameters",
+      "msg": "Invalid zap out parameters"
+    },
+    {
+      "code": 6062,
+      "name": "invalidWithdrawProtocolFeeZapAccounts",
+      "msg": "Invalid withdraw protocol fee zap accounts"
+    },
+    {
+      "code": 6063,
+      "name": "mintRestrictedFromZap",
+      "msg": "SOL,USDC protocol fee cannot be withdrawn via zap"
+    },
+    {
+      "code": 6064,
+      "name": "cpiDisabled",
+      "msg": "CPI disabled"
+    },
+    {
+      "code": 6065,
+      "name": "missingZapOutInstruction",
+      "msg": "Missing zap out instruction"
+    },
+    {
+      "code": 6066,
+      "name": "invalidZapAccounts",
+      "msg": "Invalid zap accounts"
+    },
+    {
+      "code": 6067,
+      "name": "invalidCompoundingFeeBps",
+      "msg": "Invalid compounding fee bps"
+    },
+    {
+      "code": 6068,
+      "name": "invalidClaimProtocolFeeAccounts",
+      "msg": "Invalid claim protocol fee accounts"
+    },
+    {
+      "code": 6069,
+      "name": "transferFeeExcludedAmountIsZero",
+      "msg": "Transfer fee excluded amount is zero"
+    },
+    {
+      "code": 6070,
+      "name": "delegatedAmountNonZero",
+      "msg": "Delegated amount is not zero"
+    },
+    {
+      "code": 6071,
+      "name": "deprecatedBaseFeeMode",
+      "msg": "Deprecated base fee mode"
+    },
+    {
+      "code": 6072,
+      "name": "invalidConfigPermission",
+      "msg": "Invalid config permission"
     }
   ],
   "types": [
@@ -4467,7 +4017,7 @@ export type CpAmm = {
       }
     },
     {
-      "name": "baseFeeConfig",
+      "name": "baseFeeInfo",
       "serialization": "bytemuck",
       "repr": {
         "kind": "c"
@@ -4476,33 +4026,13 @@ export type CpAmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "cliffFeeNumerator",
-            "type": "u64"
-          },
-          {
-            "name": "feeSchedulerMode",
-            "type": "u8"
-          },
-          {
-            "name": "padding",
+            "name": "data",
             "type": {
               "array": [
                 "u8",
-                5
+                32
               ]
             }
-          },
-          {
-            "name": "numberOfPeriod",
-            "type": "u16"
-          },
-          {
-            "name": "periodFrequency",
-            "type": "u64"
-          },
-          {
-            "name": "reductionFactor",
-            "type": "u64"
           }
         ]
       }
@@ -4513,24 +4043,13 @@ export type CpAmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "cliffFeeNumerator",
-            "type": "u64"
-          },
-          {
-            "name": "numberOfPeriod",
-            "type": "u16"
-          },
-          {
-            "name": "periodFrequency",
-            "type": "u64"
-          },
-          {
-            "name": "reductionFactor",
-            "type": "u64"
-          },
-          {
-            "name": "feeSchedulerMode",
-            "type": "u8"
+            "name": "data",
+            "type": {
+              "array": [
+                "u8",
+                27
+              ]
+            }
           }
         ]
       }
@@ -4545,21 +4064,105 @@ export type CpAmm = {
         "kind": "struct",
         "fields": [
           {
+            "name": "baseFeeInfo",
+            "type": {
+              "defined": {
+                "name": "baseFeeInfo"
+              }
+            }
+          },
+          {
+            "name": "padding1",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "borshFeeMarketCapScheduler",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
             "name": "cliffFeeNumerator",
             "type": "u64"
           },
           {
-            "name": "feeSchedulerMode",
-            "type": "u8"
+            "name": "numberOfPeriod",
+            "type": "u16"
           },
           {
-            "name": "padding0",
-            "type": {
-              "array": [
-                "u8",
-                5
-              ]
-            }
+            "name": "sqrtPriceStepBps",
+            "type": "u32"
+          },
+          {
+            "name": "schedulerExpirationDuration",
+            "type": "u32"
+          },
+          {
+            "name": "reductionFactor",
+            "type": "u64"
+          },
+          {
+            "name": "baseFeeMode",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "borshFeeRateLimiter",
+      "docs": [
+        "we denote reference_amount = x0, cliff_fee_numerator = c, fee_increment = i",
+        "if input_amount <= x0, then fee = input_amount * c",
+        "",
+        "if input_amount > x0, then input_amount = x0 + (a * x0 + b)",
+        "if a < max_index",
+        "then fee = x0 * c + x0 * (c + i) + .... + x0 * (c + i*a) + b * (c + i * (a+1))",
+        "then fee = x0 * (c + c*a + i*a*(a+1)/2) + b * (c + i * (a+1))",
+        "",
+        "if a >= max_index",
+        "if a = max_index + d, input_amount = x0 + max_index * x0 + (d * x0 + b)",
+        "then fee = x0 * (c + c*max_index + i*max_index*(max_index+1)/2) + (d * x0 + b) * MAX_FEE"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffFeeNumerator",
+            "type": "u64"
+          },
+          {
+            "name": "feeIncrementBps",
+            "type": "u16"
+          },
+          {
+            "name": "maxLimiterDuration",
+            "type": "u32"
+          },
+          {
+            "name": "maxFeeBps",
+            "type": "u32"
+          },
+          {
+            "name": "referenceAmount",
+            "type": "u64"
+          },
+          {
+            "name": "baseFeeMode",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "borshFeeTimeScheduler",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffFeeNumerator",
+            "type": "u64"
           },
           {
             "name": "numberOfPeriod",
@@ -4574,42 +4177,8 @@ export type CpAmm = {
             "type": "u64"
           },
           {
-            "name": "padding1",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "claimFeeOperator",
-      "docs": [
-        "Parameter that set by the protocol"
-      ],
-      "serialization": "bytemuck",
-      "repr": {
-        "kind": "c"
-      },
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "operator",
-            "docs": [
-              "operator"
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "padding",
-            "docs": [
-              "Reserve"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                128
-              ]
-            }
+            "name": "baseFeeMode",
+            "type": "u8"
           }
         ]
       }
@@ -4703,16 +4272,54 @@ export type CpAmm = {
             "type": "u128"
           },
           {
+            "name": "permission",
+            "docs": [
+              "config permission bitmask"
+            ],
+            "type": "u128"
+          },
+          {
             "name": "padding1",
             "docs": [
-              "Fee curve point",
               "Padding for further use"
             ],
             "type": {
               "array": [
                 "u64",
-                10
+                8
               ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "dummyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "borshFeeTimeSchedulerParams",
+            "type": {
+              "defined": {
+                "name": "borshFeeTimeScheduler"
+              }
+            }
+          },
+          {
+            "name": "borshFeeRateLimiterParams",
+            "type": {
+              "defined": {
+                "name": "borshFeeRateLimiter"
+              }
+            }
+          },
+          {
+            "name": "borshFeeMarketCapSchedulerParams",
+            "type": {
+              "defined": {
+                "name": "borshFeeMarketCapScheduler"
+              }
             }
           }
         ]
@@ -4726,6 +4333,10 @@ export type CpAmm = {
           {
             "name": "poolCreatorAuthority",
             "type": "pubkey"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -4898,70 +4509,6 @@ export type CpAmm = {
       }
     },
     {
-      "name": "evtAddLiquidity",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "position",
-            "type": "pubkey"
-          },
-          {
-            "name": "owner",
-            "type": "pubkey"
-          },
-          {
-            "name": "params",
-            "type": {
-              "defined": {
-                "name": "addLiquidityParameters"
-              }
-            }
-          },
-          {
-            "name": "tokenAAmount",
-            "type": "u64"
-          },
-          {
-            "name": "tokenBAmount",
-            "type": "u64"
-          },
-          {
-            "name": "totalAmountA",
-            "type": "u64"
-          },
-          {
-            "name": "totalAmountB",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "evtClaimPartnerFee",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "tokenAAmount",
-            "type": "u64"
-          },
-          {
-            "name": "tokenBAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
       "name": "evtClaimPositionFee",
       "type": {
         "kind": "struct",
@@ -4990,7 +4537,7 @@ export type CpAmm = {
       }
     },
     {
-      "name": "evtClaimProtocolFee",
+      "name": "evtClaimProtocolFee2",
       "type": {
         "kind": "struct",
         "fields": [
@@ -4999,11 +4546,15 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
-            "name": "tokenAAmount",
-            "type": "u64"
+            "name": "receiverTokenAccount",
+            "type": "pubkey"
           },
           {
-            "name": "tokenBAmount",
+            "name": "tokenMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
             "type": "u64"
           }
         ]
@@ -5037,25 +4588,6 @@ export type CpAmm = {
           {
             "name": "totalReward",
             "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "evtCloseClaimFeeOperator",
-      "docs": [
-        "Close claim fee operator"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "claimFeeOperator",
-            "type": "pubkey"
-          },
-          {
-            "name": "operator",
-            "type": "pubkey"
           }
         ]
       }
@@ -5110,21 +4642,6 @@ export type CpAmm = {
       }
     },
     {
-      "name": "evtCreateClaimFeeOperator",
-      "docs": [
-        "Create claim fee operator"
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "operator",
-            "type": "pubkey"
-          }
-        ]
-      }
-    },
-    {
       "name": "evtCreateConfig",
       "docs": [
         "Create static config"
@@ -5171,6 +4688,10 @@ export type CpAmm = {
           {
             "name": "config",
             "type": "pubkey"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -5194,6 +4715,10 @@ export type CpAmm = {
           {
             "name": "index",
             "type": "u64"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -5265,6 +4790,18 @@ export type CpAmm = {
           {
             "name": "transferFeeExcludedAmountIn",
             "type": "u64"
+          },
+          {
+            "name": "rewardDurationEnd",
+            "type": "u64"
+          },
+          {
+            "name": "preRewardRate",
+            "type": "u128"
+          },
+          {
+            "name": "postRewardRate",
+            "type": "u128"
           }
         ]
       }
@@ -5383,12 +4920,76 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
             "name": "rewardIndex",
             "type": "u8"
           },
           {
             "name": "rewardDuration",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "evtLiquidityChange",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "position",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "tokenAAmount",
+            "type": "u64"
+          },
+          {
+            "name": "tokenBAmount",
+            "type": "u64"
+          },
+          {
+            "name": "transferFeeIncludedTokenAAmount",
+            "type": "u64"
+          },
+          {
+            "name": "transferFeeIncludedTokenBAmount",
+            "type": "u64"
+          },
+          {
+            "name": "reserveAAmount",
+            "type": "u64"
+          },
+          {
+            "name": "reserveBAmount",
+            "type": "u64"
+          },
+          {
+            "name": "liquidityDelta",
+            "type": "u128"
+          },
+          {
+            "name": "tokenAAmountThreshold",
+            "type": "u64"
+          },
+          {
+            "name": "tokenBAmountThreshold",
+            "type": "u64"
+          },
+          {
+            "name": "changeType",
+            "type": "u8"
           }
         ]
       }
@@ -5462,42 +5063,6 @@ export type CpAmm = {
       }
     },
     {
-      "name": "evtRemoveLiquidity",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "position",
-            "type": "pubkey"
-          },
-          {
-            "name": "owner",
-            "type": "pubkey"
-          },
-          {
-            "name": "params",
-            "type": {
-              "defined": {
-                "name": "removeLiquidityParameters"
-              }
-            }
-          },
-          {
-            "name": "tokenAAmount",
-            "type": "u64"
-          },
-          {
-            "name": "tokenBAmount",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
       "name": "evtSetPoolStatus",
       "type": {
         "kind": "struct",
@@ -5514,7 +5079,135 @@ export type CpAmm = {
       }
     },
     {
-      "name": "evtSwap",
+      "name": "evtSplitPosition2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "firstOwner",
+            "type": "pubkey"
+          },
+          {
+            "name": "secondOwner",
+            "type": "pubkey"
+          },
+          {
+            "name": "firstPosition",
+            "type": "pubkey"
+          },
+          {
+            "name": "secondPosition",
+            "type": "pubkey"
+          },
+          {
+            "name": "currentSqrtPrice",
+            "type": "u128"
+          },
+          {
+            "name": "amountSplits",
+            "type": {
+              "defined": {
+                "name": "splitAmountInfo"
+              }
+            }
+          },
+          {
+            "name": "firstPositionInfo",
+            "type": {
+              "defined": {
+                "name": "splitPositionInfo"
+              }
+            }
+          },
+          {
+            "name": "secondPositionInfo",
+            "type": {
+              "defined": {
+                "name": "splitPositionInfo"
+              }
+            }
+          },
+          {
+            "name": "splitPositionParameters",
+            "type": {
+              "defined": {
+                "name": "splitPositionParameters2"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "evtSplitPosition3",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "firstOwner",
+            "type": "pubkey"
+          },
+          {
+            "name": "secondOwner",
+            "type": "pubkey"
+          },
+          {
+            "name": "firstPosition",
+            "type": "pubkey"
+          },
+          {
+            "name": "secondPosition",
+            "type": "pubkey"
+          },
+          {
+            "name": "currentSqrtPrice",
+            "type": "u128"
+          },
+          {
+            "name": "amountSplits",
+            "type": {
+              "defined": {
+                "name": "splitAmountInfo2"
+              }
+            }
+          },
+          {
+            "name": "firstPositionInfo",
+            "type": {
+              "defined": {
+                "name": "splitPositionInfo2"
+              }
+            }
+          },
+          {
+            "name": "secondPositionInfo",
+            "type": {
+              "defined": {
+                "name": "splitPositionInfo2"
+              }
+            }
+          },
+          {
+            "name": "splitPositionParameters",
+            "type": {
+              "defined": {
+                "name": "splitPositionParameters3"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "evtSwap2",
       "type": {
         "kind": "struct",
         "fields": [
@@ -5527,6 +5220,10 @@ export type CpAmm = {
             "type": "u8"
           },
           {
+            "name": "collectFeeMode",
+            "type": "u8"
+          },
+          {
             "name": "hasReferral",
             "type": "bool"
           },
@@ -5534,7 +5231,7 @@ export type CpAmm = {
             "name": "params",
             "type": {
               "defined": {
-                "name": "swapParameters"
+                "name": "swapParameters2"
               }
             }
           },
@@ -5542,17 +5239,83 @@ export type CpAmm = {
             "name": "swapResult",
             "type": {
               "defined": {
-                "name": "swapResult"
+                "name": "swapResult2"
               }
             }
           },
           {
-            "name": "actualAmountIn",
+            "name": "includedTransferFeeAmountIn",
+            "type": "u64"
+          },
+          {
+            "name": "includedTransferFeeAmountOut",
+            "type": "u64"
+          },
+          {
+            "name": "excludedTransferFeeAmountOut",
             "type": "u64"
           },
           {
             "name": "currentTimestamp",
             "type": "u64"
+          },
+          {
+            "name": "reserveAAmount",
+            "type": "u64"
+          },
+          {
+            "name": "reserveBAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "evtUpdateDelegatePermission",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "position",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "permission",
+            "type": "u32"
+          },
+          {
+            "name": "delegate",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "evtUpdatePoolFees",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "params",
+            "type": {
+              "defined": {
+                "name": "updatePoolFeesParameters"
+              }
+            }
           }
         ]
       }
@@ -5601,6 +5364,26 @@ export type CpAmm = {
           {
             "name": "newFunder",
             "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "evtWithdrawDeadLiquidityReward",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "rewardMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
           }
         ]
       }
@@ -5672,7 +5455,7 @@ export type CpAmm = {
           {
             "name": "sqrtPrice",
             "docs": [
-              "The init price of the pool as a sqrt(token_b/token_a) Q64.64 value"
+              "The init price of the pool as a sqrt(token_b/token_a) Q64.64 value. Market cap fee scheduler minimum price will be derived from this value"
             ],
             "type": "u128"
           },
@@ -5734,6 +5517,211 @@ export type CpAmm = {
       }
     },
     {
+      "name": "innerVesting",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffPoint",
+            "type": "u64"
+          },
+          {
+            "name": "periodFrequency",
+            "type": "u64"
+          },
+          {
+            "name": "cliffUnlockLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "liquidityPerPeriod",
+            "type": "u128"
+          },
+          {
+            "name": "totalReleasedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "numberOfPeriod",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                14
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "operator",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "whitelistedAddress",
+            "type": "pubkey"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "podAlignedFeeMarketCapScheduler",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffFeeNumerator",
+            "type": "u64"
+          },
+          {
+            "name": "baseFeeMode",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          },
+          {
+            "name": "numberOfPeriod",
+            "type": "u16"
+          },
+          {
+            "name": "sqrtPriceStepBps",
+            "type": "u32"
+          },
+          {
+            "name": "schedulerExpirationDuration",
+            "type": "u32"
+          },
+          {
+            "name": "reductionFactor",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "podAlignedFeeRateLimiter",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffFeeNumerator",
+            "type": "u64"
+          },
+          {
+            "name": "baseFeeMode",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          },
+          {
+            "name": "feeIncrementBps",
+            "type": "u16"
+          },
+          {
+            "name": "maxLimiterDuration",
+            "type": "u32"
+          },
+          {
+            "name": "maxFeeBps",
+            "type": "u32"
+          },
+          {
+            "name": "referenceAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "podAlignedFeeTimeScheduler",
+      "serialization": "bytemuck",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffFeeNumerator",
+            "type": "u64"
+          },
+          {
+            "name": "baseFeeMode",
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          },
+          {
+            "name": "numberOfPeriod",
+            "type": "u16"
+          },
+          {
+            "name": "periodFrequency",
+            "type": "u64"
+          },
+          {
+            "name": "reductionFactor",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "pool",
       "serialization": "bytemuck",
       "repr": {
@@ -5789,11 +5777,16 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
-            "name": "partner",
+            "name": "padding0",
             "docs": [
-              "partner"
+              "padding, previously partner pubkey, be careful when using this field"
             ],
-            "type": "pubkey"
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "liquidity",
@@ -5803,7 +5796,7 @@ export type CpAmm = {
             "type": "u128"
           },
           {
-            "name": "padding",
+            "name": "padding1",
             "docs": [
               "padding, previous reserve amount, be careful to use that field"
             ],
@@ -5824,18 +5817,20 @@ export type CpAmm = {
             "type": "u64"
           },
           {
-            "name": "partnerAFee",
+            "name": "deadLiquidityFeeCheckpoint",
             "docs": [
-              "partner a fee"
+              "Cumulative dead-liquidity fee (Compounding Pool only)"
             ],
             "type": "u64"
           },
           {
-            "name": "partnerBFee",
-            "docs": [
-              "partner b fee"
-            ],
-            "type": "u64"
+            "name": "padding2",
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
           },
           {
             "name": "sqrtMinPrice",
@@ -5896,7 +5891,7 @@ export type CpAmm = {
           {
             "name": "collectFeeMode",
             "docs": [
-              "0 is collect fee in both token, 1 only collect fee in token a, 2 only collect fee in token b"
+              "0 is collect fee in both token, 1 only collect fee only in token b"
             ],
             "type": "u8"
           },
@@ -5908,16 +5903,18 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "feeVersion",
+            "docs": [
+              "pool fee version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding3",
             "docs": [
               "padding"
             ],
-            "type": {
-              "array": [
-                "u8",
-                2
-              ]
-            }
+            "type": "u8"
           },
           {
             "name": "feeAPerLiquidity",
@@ -5959,14 +5956,54 @@ export type CpAmm = {
             }
           },
           {
-            "name": "padding1",
+            "name": "creator",
+            "docs": [
+              "pool creator"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "tokenAAmount",
+            "docs": [
+              "token a amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "tokenBAmount",
+            "docs": [
+              "token b amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "layoutVersion",
+            "docs": [
+              "layout version: version 0: haven't track token_a_amount and token_b_amount, version 1: track token_a_amount and token_b_amount"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding4",
+            "docs": [
+              "Padding for further use"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
+            "name": "padding5",
             "docs": [
               "Padding for further use"
             ],
             "type": {
               "array": [
                 "u64",
-                10
+                3
               ]
             }
           },
@@ -6009,23 +6046,16 @@ export type CpAmm = {
             }
           },
           {
-            "name": "protocolFeePercent",
+            "name": "compoundingFeeBps",
             "docs": [
-              "Protocol trade fee percent"
+              "compounding fee bps, only have value if CollectFeeMode::Compounding"
             ],
-            "type": "u8"
+            "type": "u16"
           },
           {
-            "name": "partnerFeePercent",
+            "name": "padding",
             "docs": [
-              "partner fee percent"
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "referralFeePercent",
-            "docs": [
-              "referral fee percent"
+              "padding for future use"
             ],
             "type": "u8"
           },
@@ -6058,7 +6088,7 @@ export type CpAmm = {
             "name": "baseFee",
             "type": {
               "defined": {
-                "name": "baseFeeConfig"
+                "name": "baseFeeInfo"
               }
             }
           },
@@ -6075,7 +6105,7 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "partnerFeePercent",
+            "name": "padding0",
             "type": "u8"
           },
           {
@@ -6083,16 +6113,23 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "padding1",
             "type": {
               "array": [
                 "u8",
-                5
+                3
               ]
             }
           },
           {
-            "name": "padding1",
+            "name": "compoundingFeeBps",
+            "docs": [
+              "Compounding fee bps, only non-zero if collect_fee_mode is compounding"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "padding2",
             "type": {
               "array": [
                 "u64",
@@ -6109,8 +6146,7 @@ export type CpAmm = {
         "Information regarding fee charges",
         "trading_fee = amount * trade_fee_numerator / denominator",
         "protocol_fee = trading_fee * protocol_fee_percentage / 100",
-        "referral_fee = protocol_fee * referral_percentage / 100",
-        "partner_fee = (protocol_fee - referral_fee) * partner_fee_percentage / denominator"
+        "referral_fee = protocol_fee * referral_percentage / 100"
       ],
       "serialization": "bytemuck",
       "repr": {
@@ -6143,9 +6179,9 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "partnerFeePercent",
+            "name": "padding0",
             "docs": [
-              "partner fee"
+              "padding for future use"
             ],
             "type": "u8"
           },
@@ -6157,16 +6193,23 @@ export type CpAmm = {
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "padding1",
             "docs": [
               "padding"
             ],
             "type": {
               "array": [
                 "u8",
-                5
+                3
               ]
             }
+          },
+          {
+            "name": "compoundingFeeBps",
+            "docs": [
+              "compounding fee bps, only non-zero in CollectFeeMode::Compounding"
+            ],
+            "type": "u16"
           },
           {
             "name": "dynamicFee",
@@ -6180,16 +6223,8 @@ export type CpAmm = {
             }
           },
           {
-            "name": "padding1",
-            "docs": [
-              "padding"
-            ],
-            "type": {
-              "array": [
-                "u64",
-                2
-              ]
-            }
+            "name": "initSqrtPrice",
+            "type": "u128"
           }
         ]
       }
@@ -6220,12 +6255,13 @@ export type CpAmm = {
             "type": "u64"
           },
           {
-            "name": "totalPartnerAFee",
-            "type": "u64"
-          },
-          {
-            "name": "totalPartnerBFee",
-            "type": "u64"
+            "name": "padding0",
+            "type": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
           },
           {
             "name": "totalPosition",
@@ -6345,14 +6381,32 @@ export type CpAmm = {
             }
           },
           {
+            "name": "innerVesting",
+            "docs": [
+              "inner vesting info"
+            ],
+            "type": {
+              "defined": {
+                "name": "innerVesting"
+              }
+            }
+          },
+          {
+            "name": "delegatePermission",
+            "docs": [
+              "delegate permission bitmask (paired with SPL token Approve)"
+            ],
+            "type": "u32"
+          },
+          {
             "name": "padding",
             "docs": [
               "padding for future usage"
             ],
             "type": {
               "array": [
-                "u128",
-                6
+                "u8",
+                12
               ]
             }
           }
@@ -6447,16 +6501,11 @@ export type CpAmm = {
             }
           },
           {
-            "name": "padding1",
+            "name": "deadLiquidityRewardCheckpoint",
             "docs": [
-              "Padding to ensure `reward_rate: u128` is 16-byte aligned"
+              "Cumulative dead-liquidity reward (Compounding Pool only)"
             ],
-            "type": {
-              "array": [
-                "u8",
-                8
-              ]
-            }
+            "type": "u64"
           },
           {
             "name": "mint",
@@ -6531,6 +6580,275 @@ export type CpAmm = {
       }
     },
     {
+      "name": "splitAmountInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "permanentLockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "unlockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "feeA",
+            "type": "u64"
+          },
+          {
+            "name": "feeB",
+            "type": "u64"
+          },
+          {
+            "name": "reward0",
+            "type": "u64"
+          },
+          {
+            "name": "reward1",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitAmountInfo2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "permanentLockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "unlockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "vestedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "feeA",
+            "type": "u64"
+          },
+          {
+            "name": "feeB",
+            "type": "u64"
+          },
+          {
+            "name": "reward0",
+            "type": "u64"
+          },
+          {
+            "name": "reward1",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitPositionInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "liquidity",
+            "type": "u128"
+          },
+          {
+            "name": "feeA",
+            "type": "u64"
+          },
+          {
+            "name": "feeB",
+            "type": "u64"
+          },
+          {
+            "name": "reward0",
+            "type": "u64"
+          },
+          {
+            "name": "reward1",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitPositionInfo2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "unlockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "permanentLockedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "vestedLiquidity",
+            "type": "u128"
+          },
+          {
+            "name": "feeA",
+            "type": "u64"
+          },
+          {
+            "name": "feeB",
+            "type": "u64"
+          },
+          {
+            "name": "reward0",
+            "type": "u64"
+          },
+          {
+            "name": "reward1",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitPositionParameters",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "unlockedLiquidityPercentage",
+            "docs": [
+              "Percentage of unlocked liquidity to split to the second position"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "permanentLockedLiquidityPercentage",
+            "docs": [
+              "Percentage of permanent locked liquidity to split to the second position"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "feeAPercentage",
+            "docs": [
+              "Percentage of fee A pending to split to the second position"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "feeBPercentage",
+            "docs": [
+              "Percentage of fee B pending to split to the second position"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "reward0Percentage",
+            "docs": [
+              "Percentage of reward 0 pending to split to the second position"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "reward1Percentage",
+            "docs": [
+              "Percentage of reward 1 pending to split to the second position"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "innerVestingLiquidityPercentage",
+            "docs": [
+              "Percentage of inner vesting liquidity"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "padding for future"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                15
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitPositionParameters2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "unlockedLiquidityNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "permanentLockedLiquidityNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "feeANumerator",
+            "type": "u32"
+          },
+          {
+            "name": "feeBNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "reward0Numerator",
+            "type": "u32"
+          },
+          {
+            "name": "reward1Numerator",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "splitPositionParameters3",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "unlockedLiquidityNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "permanentLockedLiquidityNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "feeANumerator",
+            "type": "u32"
+          },
+          {
+            "name": "feeBNumerator",
+            "type": "u32"
+          },
+          {
+            "name": "reward0Numerator",
+            "type": "u32"
+          },
+          {
+            "name": "reward1Numerator",
+            "type": "u32"
+          },
+          {
+            "name": "innerVestingLiquidityNumerator",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
       "name": "staticConfigParameters",
       "type": {
         "kind": "struct",
@@ -6566,6 +6884,10 @@ export type CpAmm = {
           {
             "name": "collectFeeMode",
             "type": "u8"
+          },
+          {
+            "name": "permission",
+            "type": "u128"
           }
         ]
       }
@@ -6587,13 +6909,51 @@ export type CpAmm = {
       }
     },
     {
-      "name": "swapResult",
-      "docs": [
-        "Encodes all results of swapping"
-      ],
+      "name": "swapParameters2",
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "amount0",
+            "docs": [
+              "When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "amount1",
+            "docs": [
+              "When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "swapMode",
+            "docs": [
+              "Swap mode, refer [SwapMode]"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "swapResult2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "includedFeeInputAmount",
+            "type": "u64"
+          },
+          {
+            "name": "excludedFeeInputAmount",
+            "type": "u64"
+          },
+          {
+            "name": "amountLeft",
+            "type": "u64"
+          },
           {
             "name": "outputAmount",
             "type": "u64"
@@ -6603,7 +6963,7 @@ export type CpAmm = {
             "type": "u128"
           },
           {
-            "name": "lpFee",
+            "name": "claimingFee",
             "type": "u64"
           },
           {
@@ -6611,7 +6971,7 @@ export type CpAmm = {
             "type": "u64"
           },
           {
-            "name": "partnerFee",
+            "name": "compoundingFee",
             "type": "u64"
           },
           {
@@ -6650,6 +7010,52 @@ export type CpAmm = {
                 "u8",
                 128
               ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "updatePoolFeesParameters",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cliffFeeNumerator",
+            "docs": [
+              "Base fee update mode:",
+              "- None: skip base fee update",
+              "- Some: update new cliff_fee_numerator if base fee is static"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "dynamicFee",
+            "docs": [
+              "Dynamic fee update mode:",
+              "- None: skip dynamic fee update",
+              "- Some(with default value): disable dynamic fee",
+              "- Some(with non default value): enable dynamic fee if disabled or update dynamic fee if enabled"
+            ],
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "dynamicFeeParameters"
+                }
+              }
+            }
+          },
+          {
+            "name": "compoundingFeeBps",
+            "docs": [
+              "Compounding fee update mode:",
+              "- None: skip compounding fee update",
+              "- Some: update compounding_fee_bps; pool must use CollectFeeMode::Compounding"
+            ],
+            "type": {
+              "option": "u16"
             }
           }
         ]
@@ -6707,36 +7113,11 @@ export type CpAmm = {
             "type": "pubkey"
           },
           {
-            "name": "cliffPoint",
-            "type": "u64"
-          },
-          {
-            "name": "periodFrequency",
-            "type": "u64"
-          },
-          {
-            "name": "cliffUnlockLiquidity",
-            "type": "u128"
-          },
-          {
-            "name": "liquidityPerPeriod",
-            "type": "u128"
-          },
-          {
-            "name": "totalReleasedLiquidity",
-            "type": "u128"
-          },
-          {
-            "name": "numberOfPeriod",
-            "type": "u16"
-          },
-          {
-            "name": "padding",
+            "name": "innerVesting",
             "type": {
-              "array": [
-                "u8",
-                14
-              ]
+              "defined": {
+                "name": "innerVesting"
+              }
             }
           },
           {
@@ -6780,6 +7161,114 @@ export type CpAmm = {
           }
         ]
       }
+    }
+  ],
+  "constants": [
+    {
+      "name": "binStepBpsDefault",
+      "type": "u16",
+      "value": "1"
+    },
+    {
+      "name": "binStepU128DefaultLeBytes",
+      "type": {
+        "array": [
+          "u8",
+          16
+        ]
+      },
+      "value": "[203, 16, 199, 186, 184, 141, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0]"
+    },
+    {
+      "name": "currentPoolVersion",
+      "type": "u8",
+      "value": "1"
+    },
+    {
+      "name": "customizablePoolPrefix",
+      "type": "bytes",
+      "value": "[99, 112, 111, 111, 108]"
+    },
+    {
+      "name": "feeDenominator",
+      "docs": [
+        "Default fee denominator. DO NOT simply update it as it will break logic that depends on it as default value."
+      ],
+      "type": "u64",
+      "value": "1000000000"
+    },
+    {
+      "name": "maxBasisPoint",
+      "docs": [
+        "Max basis point. 100% in pct"
+      ],
+      "type": "u16",
+      "value": "10000"
+    },
+    {
+      "name": "maxFeeNumeratorV0",
+      "type": "u64",
+      "value": "500000000"
+    },
+    {
+      "name": "maxFeeNumeratorV1",
+      "type": "u64",
+      "value": "990000000"
+    },
+    {
+      "name": "maxSqrtPriceLeBytes",
+      "type": {
+        "array": [
+          "u8",
+          16
+        ]
+      },
+      "value": "[155, 87, 105, 78, 169, 26, 92, 132, 177, 196, 254, 255, 0, 0, 0, 0]"
+    },
+    {
+      "name": "minFeeNumerator",
+      "type": "u64",
+      "value": "100000"
+    },
+    {
+      "name": "minSqrtPriceLeBytes",
+      "type": {
+        "array": [
+          "u8",
+          16
+        ]
+      },
+      "value": "[80, 59, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]"
+    },
+    {
+      "name": "poolAuthorityPrefix",
+      "type": "bytes",
+      "value": "[112, 111, 111, 108, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121]"
+    },
+    {
+      "name": "poolPrefix",
+      "type": "bytes",
+      "value": "[112, 111, 111, 108]"
+    },
+    {
+      "name": "positionNftAccountPrefix",
+      "type": "bytes",
+      "value": "[112, 111, 115, 105, 116, 105, 111, 110, 95, 110, 102, 116, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "positionPrefix",
+      "type": "bytes",
+      "value": "[112, 111, 115, 105, 116, 105, 111, 110]"
+    },
+    {
+      "name": "splitPositionDenominator",
+      "type": "u32",
+      "value": "1000000000"
+    },
+    {
+      "name": "tokenVaultPrefix",
+      "type": "bytes",
+      "value": "[116, 111, 107, 101, 110, 95, 118, 97, 117, 108, 116]"
     }
   ]
 };

@@ -1,7 +1,17 @@
+import { Program } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
-import { BanksClient } from "solana-bankrun";
+import { LiteSVM } from "litesvm";
+import {
+  createDammProgram,
+  createDammV2Program,
+  createVaultProgram,
+} from "./common";
+import { DynamicAmm } from "./idl/dynamic_amm";
 import {
   ClaimFeeOperator,
+  DammV1Pool,
+  DammV2Pool,
+  DynamicVault,
   LockEscrow,
   MeteoraDammMigrationMetadata,
   PartnerMetadata,
@@ -10,96 +20,112 @@ import {
   VirtualCurveProgram,
   VirtualPoolMetadata,
 } from "./types";
-import { Program } from "@coral-xyz/anchor";
-import { DynamicAmm } from "./idl/dynamic_amm";
-import { createDammV2Program } from "./common";
 
-export async function getVirtualPool(
-  banksClient: BanksClient,
+export function getVirtualPool(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   pool: PublicKey
-): Promise<Pool> {
-  const account = await banksClient.getAccount(pool);
-  return program.coder.accounts.decode(
-    "virtualPool",
-    Buffer.from(account.data)
-  );
+): Pool {
+  const account = svm.getAccount(pool);
+  const data = Buffer.from(account.data);
+  try {
+    const decoded = program.coder.accounts.decode("virtualPool", data);
+    return decoded.poolState;
+  } catch {
+    const decoded = program.coder.accounts.decode("transferHookPool", data);
+    return decoded.poolState;
+  }
 }
 
-export async function getConfig(
-  banksClient: BanksClient,
+export function getConfig(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   config: PublicKey
-): Promise<PoolConfig> {
-  const account = await banksClient.getAccount(config);
-  return program.coder.accounts.decode("poolConfig", Buffer.from(account.data));
+): PoolConfig {
+  const account = svm.getAccount(config);
+  const data = Buffer.from(account.data);
+  try {
+    return program.coder.accounts.decode("poolConfig", data);
+  } catch {
+    const decoded = program.coder.accounts.decode(
+      "configWithTransferHook",
+      data
+    );
+    return decoded.config;
+  }
 }
 
-export async function getPartnerMetadata(
-  banksClient: BanksClient,
+export function getPartnerMetadata(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   partnerMetadata: PublicKey
-): Promise<PartnerMetadata> {
-  const account = await banksClient.getAccount(partnerMetadata);
+): PartnerMetadata {
+  const account = svm.getAccount(partnerMetadata);
   return program.coder.accounts.decode(
     "partnerMetadata",
     Buffer.from(account.data)
   );
 }
 
-export async function getVirtualPoolMetadata(
-  banksClient: BanksClient,
+export function getVirtualPoolMetadata(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   virtualPoolMetadata: PublicKey
-): Promise<VirtualPoolMetadata> {
-  const account = await banksClient.getAccount(virtualPoolMetadata);
+): VirtualPoolMetadata {
+  const account = svm.getAccount(virtualPoolMetadata);
   return program.coder.accounts.decode(
     "virtualPoolMetadata",
     Buffer.from(account.data)
   );
 }
 
-export async function getClaimFeeOperator(
-  banksClient: BanksClient,
+export function getClaimFeeOperator(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   claimFeeOperator: PublicKey
-): Promise<ClaimFeeOperator> {
-  const account = await banksClient.getAccount(claimFeeOperator);
+): ClaimFeeOperator {
+  const account = svm.getAccount(claimFeeOperator);
   return program.coder.accounts.decode(
     "claimFeeOperator",
     Buffer.from(account.data)
   );
 }
 
-export async function getMeteoraDammMigrationMetadata(
-  banksClient: BanksClient,
+export function getMeteoraDammMigrationMetadata(
+  svm: LiteSVM,
   program: VirtualCurveProgram,
   migrationMetadata: PublicKey
-): Promise<MeteoraDammMigrationMetadata> {
-  const account = await banksClient.getAccount(migrationMetadata);
+): MeteoraDammMigrationMetadata {
+  const account = svm.getAccount(migrationMetadata);
   return program.coder.accounts.decode(
     "meteoraDammMigrationMetadata",
     Buffer.from(account.data)
   );
 }
 
-export async function getLockEscrow(
-  banksClient: BanksClient,
+export function getLockEscrow(
+  svm: LiteSVM,
   program: Program<DynamicAmm>,
   lockEscrow: PublicKey
-): Promise<LockEscrow> {
-  const account = await banksClient.getAccount(lockEscrow);
+): LockEscrow {
+  const account = svm.getAccount(lockEscrow);
   return program.coder.accounts.decode("lockEscrow", Buffer.from(account.data));
 }
 
-export async function getDammV2Pool(
-  banksClient: BanksClient,
-  pool: PublicKey
-): Promise<any> {
-  const account = await banksClient.getAccount(pool);
-  const program =  createDammV2Program()
-  return program.coder.accounts.decode(
-    "pool",
-    Buffer.from(account.data)
-  );
+export function getDammV2Pool(svm: LiteSVM, pool: PublicKey): DammV2Pool {
+  const account = svm.getAccount(pool);
+  const program = createDammV2Program();
+  return program.coder.accounts.decode("pool", Buffer.from(account.data));
+}
+
+export function getDammV1Pool(svm: LiteSVM, pool: PublicKey): DammV1Pool {
+  const account = svm.getAccount(pool);
+  const program = createDammProgram();
+  return program.coder.accounts.decode("pool", Buffer.from(account.data));
+}
+
+export function getVaultAccount(svm: LiteSVM, vault: PublicKey): DynamicVault {
+  const account = svm.getAccount(vault);
+  const program = createVaultProgram();
+  return program.coder.accounts.decode("vault", Buffer.from(account.data));
 }

@@ -29,6 +29,7 @@ pub enum PoolError {
     #[msg("Invalid activation type")]
     InvalidActivationType,
 
+    /// deprecated
     #[msg("Invalid quote mint")]
     InvalidQuoteMint,
 
@@ -53,7 +54,7 @@ pub enum PoolError {
     #[msg("Invalid migration option")]
     InvalidMigrationOption,
 
-    #[msg("Invalid activation type")]
+    #[msg("Invalid token decimals")]
     InvalidTokenDecimals,
 
     #[msg("Invalid token type")]
@@ -86,6 +87,7 @@ pub enum PoolError {
     #[msg("Leftover has been withdraw")]
     LeftoverHasBeenWithdraw,
 
+    /// deprecated
     #[msg("Total base token is exceeded max supply")]
     TotalBaseTokenExceedMaxSupply,
 
@@ -104,8 +106,8 @@ pub enum PoolError {
     #[msg("Invalid leftover address")]
     InvalidLeftoverAddress,
 
-    #[msg("Swap amount is over a threshold")]
-    SwapAmountIsOverAThreshold,
+    #[msg("Liquidity in bonding curve is insufficient")]
+    InsufficientLiquidity,
 
     #[msg("Invalid fee scheduler")]
     InvalidFeeScheduler,
@@ -143,12 +145,14 @@ pub enum PoolError {
     #[msg("Undertermined error")]
     UndeterminedError,
 
+    /// deprecated
     #[msg("Rate limiter not supported")]
     RateLimiterNotSupported,
 
     #[msg("Amount left is not zero")]
     AmountLeftIsNotZero,
 
+    /// deprecated
     #[msg("Next sqrt price is smaller than start sqrt price")]
     NextSqrtPriceIsSmallerThanStartSqrtPrice,
 
@@ -157,4 +161,117 @@ pub enum PoolError {
 
     #[msg("Account invariant violation")]
     AccountInvariantViolation,
+
+    #[msg("Invalid pool creation fee")]
+    InvalidPoolCreationFee,
+
+    #[msg("Pool creation fee has been claimed")]
+    PoolCreationFeeHasBeenClaimed,
+
+    #[msg("Not permit to do this action")]
+    Unauthorized,
+
+    #[msg("Pool creation fee is zero")]
+    ZeroPoolCreationFee,
+
+    #[msg("Invalid migration locked liquidity")]
+    InvalidMigrationLockedLiquidity,
+
+    #[msg("Invalid fee market cap scheduler")]
+    InvalidFeeMarketCapScheduler,
+
+    /// deprecated
+    #[msg("Fail to validate first swap with minimum fee")]
+    FirstSwapValidationFailed,
+
+    /// deprecated
+    #[msg("Incorrect ATA")]
+    IncorrectATA,
+
+    #[msg("Pool has insufficient lamports to perform the operation")]
+    InsufficientPoolLamports,
+
+    #[msg("Invalid permission")]
+    InvalidPermission,
+
+    /// deprecated
+    #[msg("Invalid withdraw protocol fee zap accounts")]
+    InvalidWithdrawProtocolFeeZapAccounts,
+
+    /// deprecated
+    #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
+    MintRestrictedFromZap,
+
+    /// deprecated
+    #[msg("Invalid zap out parameters")]
+    InvalidZapOutParameters,
+
+    /// deprecated
+    #[msg("CPI disabled")]
+    CpiDisabled,
+
+    /// deprecated
+    #[msg("Missing zap out instruction")]
+    MissingZapOutInstruction,
+
+    /// deprecated
+    #[msg("Invalid zap accounts")]
+    InvalidZapAccounts,
+
+    #[msg("Invalid compounding parameters")]
+    InvalidCompoundingParameters,
+
+    #[msg("Invalid claim protocol fee accounts")]
+    InvalidClaimProtocolFeeAccounts,
+
+    #[msg("Invalid instructions sysvar account")]
+    InvalidInstructionsSysvar,
+
+    #[msg("Invalid remaining accounts length")]
+    InvalidRemainingAccountsLength,
+
+    #[msg("Missing remaining account for transfer hook")]
+    MissingRemainingAccountForTransferHook,
+
+    #[msg("No transfer hook program")]
+    NoTransferHookProgram,
+
+    #[msg("Duplicated remaining account types")]
+    DuplicatedRemainingAccountTypes,
+
+    #[msg("Invalid transfer hook program")]
+    InvalidTransferHookProgram,
+
+    #[msg("Invalid pool account")]
+    InvalidPoolAccount,
+
+    #[msg("Pool type does not match instruction")]
+    PoolTypeMismatch,
+
+    #[msg("Invalid remaining account slice type for this instruction")]
+    InvalidRemainingAccountSliceType,
+
+    #[msg("Deprecated base fee mode")]
+    DeprecatedBaseFeeMode,
+
+    #[msg("Cannot create token badge on supported mint")]
+    CannotCreateTokenBadgeOnSupportedMint,
+
+    #[msg("Invalid token badge")]
+    InvalidTokenBadge,
+
+    #[msg("Quote mint has a non zero transfer fee or a live transfer fee config authority")]
+    QuoteMintHasNonZeroTransferFee,
+
+    #[msg("Deprecated migration option")]
+    DeprecatedMigrationOption,
+
+    #[msg("Transfer fee inverse calculation is incorrect")]
+    FeeInverseIsIncorrect,
+
+    #[msg("Invalid transfer fee parameters")]
+    InvalidTransferFeeParameters,
+
+    #[msg("Required input amount exceeds the provided amount in")]
+    ExceededInputAmount,
 }

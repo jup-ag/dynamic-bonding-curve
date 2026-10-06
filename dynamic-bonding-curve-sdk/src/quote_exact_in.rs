@@ -1,35 +1,32 @@
+use crate::transfer_fee::{get_transfer_fees, SwapResultWithTransferFee};
+use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFeeConfig;
 use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, PoolState},
+    token::calculate_transfer_fee_excluded_amount,
 };
-use solana_pubkey::Pubkey;
 
 pub fn quote_exact_in(
-    virtual_pool: &VirtualPool,
+    pool: &PoolState,
     config: &PoolConfig,
     swap_base_for_quote: bool,
     current_timestamp: u64,
     current_slot: u64,
-    transfer_fee_excluded_amount_in: u64, // must be calculated from outside
+    current_epoch: u64,
+    base_mint_transfer_fee_config: Option<&TransferFeeConfig>,
+    quote_mint_transfer_fee_config: Option<&TransferFeeConfig>,
+    in_amount: u64,
     has_referral: bool,
-) -> Result<SwapResult2> {
+    eligible_for_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
+) -> Result<SwapResultWithTransferFee> {
     ensure!(
-        !virtual_pool.is_curve_complete(config.migration_quote_threshold),
+        !pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
     );
 
-    ensure!(transfer_fee_excluded_amount_in > 0, "amount is zero");
-
-    let mut volatility_tracker = virtual_pool.volatility_tracker;
-    if config.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
-        volatility_tracker.update_references(
-            &config.pool_fees.dynamic_fee,
-            virtual_pool.sqrt_price,
-            current_timestamp,
-        )?;
-    }
+    ensure!(in_amount > 0, "amount is zero");
 
     let activation_type =
         ActivationType::try_from(config.activation_type).context("invalid activation type")?;
@@ -45,41 +42,38 @@ pub fn quote_exact_in(
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result = virtual_pool.get_swap_result_from_exact_input(
+    let (input_transfer_fee, output_transfer_fee) = get_transfer_fees(
+        base_mint_transfer_fee_config,
+        quote_mint_transfer_fee_config,
+        current_epoch,
+        trade_direction,
+    );
+    let excluded_transfer_fee_amount_in =
+        calculate_transfer_fee_excluded_amount(input_transfer_fee.as_ref(), in_amount)?.amount;
+    ensure!(excluded_transfer_fee_amount_in > 0, "amount is zero");
+
+    // Mirror on-chain process_swap, which refreshes volatility references before the swap
+    let mut pool = *pool;
+    pool.update_pre_swap(config, current_timestamp)?;
+
+    let swap_result = pool.get_swap_result_from_exact_input(
         config,
-        transfer_fee_excluded_amount_in,
+        excluded_transfer_fee_amount_in,
         fee_mode,
         trade_direction,
         current_point,
-        virtual_pool.activation_point,
-        &volatility_tracker,
+        eligible_for_first_swap_with_min_fee,
     )?;
 
-    Ok(swap_result)
-}
+    let excluded_transfer_fee_amount_out = calculate_transfer_fee_excluded_amount(
+        output_transfer_fee.as_ref(),
+        swap_result.output_amount,
+    )?
+    .amount;
 
-pub fn get_fee_mint(
-    config: &PoolConfig,
-    virtual_pool: &VirtualPool,
-    swap_base_for_quote: bool,
-    has_referral: bool,
-) -> Result<Pubkey> {
-    let trade_direction = if swap_base_for_quote {
-        TradeDirection::BaseToQuote
-    } else {
-        TradeDirection::QuoteToBase
-    };
-
-    // Calculate the fee mode based on config, direction, and referral
-    let fee_mode = FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)
-        .context("Failed to determine fee mode")?; // Use anyhow::Context for error handling
-
-    // Determine the fee mint based on the fee mode
-    let fee_mint = if fee_mode.fees_on_base_token {
-        virtual_pool.base_mint
-    } else {
-        config.quote_mint // Quote mint is stored in the config
-    };
-
-    Ok(Pubkey::from(fee_mint.to_bytes()))
+    Ok(SwapResultWithTransferFee {
+        included_transfer_fee_amount_in: in_amount,
+        excluded_transfer_fee_amount_out,
+        swap_result,
+    })
 }

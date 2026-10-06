@@ -9,3 +9,7 @@ pub mod partner_metadata;
 pub use partner_metadata::*;
 pub mod virtual_pool_metadata;
 pub use virtual_pool_metadata::*;
+pub mod operator;
+pub use operator::*;
+pub mod token_badge;
+pub use token_badge::*;

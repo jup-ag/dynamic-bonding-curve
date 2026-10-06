@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock::SECONDS_PER_DAY};
 use anchor_spl::{
     token::{Mint, MintTo, Token, TokenAccount},
     token_2022::spl_token_2022::instruction::AuthorityType,
@@ -10,12 +10,23 @@ use std::cmp::{max, min};
 
 use crate::{
     activation_handler::get_current_point,
+    base_fee::BaseFeeEnumReader,
     const_pda,
-    constants::seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+    constants::{
+        fee::PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        seeds::{POOL_PREFIX, TOKEN_VAULT_PREFIX},
+        MIN_LOCKED_LIQUIDITY_BPS,
+    },
     cpi_checker::cpi_with_account_lamport_and_owner_checking,
+    event::EvtInitializePool,
     process_create_token_metadata,
-    state::{fee::VolatilityTracker, PoolConfig, PoolType, TokenType, VirtualPool},
-    EvtInitializePool, PoolError, ProcessCreateTokenMetadataParams,
+    state::{
+        fee::VolatilityTracker, BaseFeeMode, MigrationOption, PoolConfig, PoolType, TokenType,
+        VirtualPool,
+    },
+    token::validate_quote_mint_with_token_badge,
+    utils::accounts::transfer_lamports_from_user,
+    PoolError, ProcessCreateTokenMetadataParams,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -45,7 +56,7 @@ pub struct InitializeVirtualPoolWithSplTokenCtx<'info> {
     #[account(
         address = const_pda::pool_authority::ID
     )]
-    pub pool_authority: AccountInfo<'info>,
+    pub pool_authority: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
 
@@ -136,7 +147,28 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    validate_quote_mint_with_token_badge(&ctx.accounts.quote_mint, ctx.remaining_accounts.first())?;
+
     let config = ctx.accounts.config.load()?;
+
+    require!(
+        config.get_total_liquidity_locked_bps_at_n_seconds(SECONDS_PER_DAY)?
+            >= MIN_LOCKED_LIQUIDITY_BPS,
+        PoolError::InvalidMigrationLockedLiquidity
+    );
+
+    require!(
+        config.pool_fees.base_fee.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
+        PoolError::DeprecatedBaseFeeMode
+    );
+
+    let migration_option = MigrationOption::try_from(config.migration_option)
+        .map_err(|_| PoolError::InvalidMigrationOption)?;
+
+    require!(
+        migration_option != MigrationOption::MeteoraDamm,
+        PoolError::DeprecatedMigrationOption
+    );
 
     // validate min base fee
     config.pool_fees.base_fee.validate_min_base_fee()?;
@@ -153,6 +185,12 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
     let InitializePoolParameters { name, symbol, uri } = params;
 
     let token_authority = config.get_token_authority()?;
+    // mint authority option are deprecated and no longer allowed for new pools
+    require!(
+        !token_authority.has_mint_authority(),
+        PoolError::InvalidTokenAuthorityOption
+    );
+
     // create token metadata
     cpi_with_account_lamport_and_owner_checking(
         || {
@@ -190,10 +228,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
         initial_base_supply,
     )?;
 
-    // update mint authority
-    let token_mint_authority =
-        token_authority.get_mint_authority(ctx.accounts.creator.key(), config.fee_claimer.key());
-
+    // revoke mint authority
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.key(),
@@ -204,8 +239,18 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
             &[&seeds[..]],
         ),
         AuthorityType::MintTokens,
-        token_mint_authority,
+        None,
     )?;
+
+    // charge pool creation fee
+    if config.pool_creation_fee > 0 {
+        transfer_lamports_from_user(
+            ctx.accounts.payer.to_account_info(),
+            ctx.accounts.pool.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            config.pool_creation_fee,
+        )?;
+    }
 
     // init pool
     let mut pool = ctx.accounts.pool.load_init()?;
@@ -223,7 +268,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
         PoolType::SplToken.into(),
         activation_point,
         initial_base_supply,
-        false,
+        PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
     );
 
     emit_cpi!(EvtInitializePool {

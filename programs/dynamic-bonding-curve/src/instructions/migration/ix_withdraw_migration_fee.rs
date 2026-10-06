@@ -4,9 +4,10 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     const_pda,
-    state::{MigrationFeeDistribution, PoolConfig, VirtualPool, CREATOR_MASK, PARTNER_MASK},
-    token::transfer_from_pool,
-    EvtWithdrawMigrationFee, PoolError,
+    event::EvtWithdrawMigrationFee,
+    state::{MigrationFeeDistribution, CREATOR_MIGRATION_FEE_MASK, PARTNER_MIGRATION_FEE_MASK},
+    token::transfer_token_from_pool_authority,
+    ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for creator withdraw migration fee
@@ -19,15 +20,12 @@ pub struct WithdrawMigrationFeeCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(has_one = quote_mint)]
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
-    #[account(
-        mut,
-        has_one = quote_vault,
-        has_one = config,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
     /// The receiver token account
     #[account(mut)]
@@ -68,8 +66,25 @@ pub fn handle_withdraw_migration_fee(
     ctx: Context<WithdrawMigrationFeeCtx>,
     flag: u8, // 0 as partner and 1 as creator
 ) -> Result<()> {
-    let config = ctx.accounts.config.load()?;
-    let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
+
+    require!(
+        config.quote_mint.eq(&ctx.accounts.quote_mint.key()),
+        ErrorCode::ConstraintHasOne
+    );
+
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
+        ErrorCode::ConstraintHasOne
+    );
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     // Make sure pool has been completed
     require!(
@@ -87,7 +102,7 @@ pub fn handle_withdraw_migration_fee(
             ctx.accounts.sender.key() == config.fee_claimer,
             PoolError::NotPermitToDoThisAction
         );
-        let mask = PARTNER_MASK;
+        let mask = PARTNER_MIGRATION_FEE_MASK;
         // Ensure the partner has never been withdrawn
         require!(
             pool.eligible_to_withdraw_migration_fee(mask),
@@ -101,7 +116,7 @@ pub fn handle_withdraw_migration_fee(
             ctx.accounts.sender.key() == pool.creator,
             PoolError::NotPermitToDoThisAction
         );
-        let mask = CREATOR_MASK;
+        let mask = CREATOR_MIGRATION_FEE_MASK;
         // Ensure the creator has never been withdrawn
         require!(
             pool.eligible_to_withdraw_migration_fee(mask),
@@ -112,14 +127,14 @@ pub fn handle_withdraw_migration_fee(
         creator_migration_fee
     };
 
-    transfer_from_pool(
+    transfer_token_from_pool_authority(
         ctx.accounts.pool_authority.to_account_info(),
         &ctx.accounts.quote_mint,
         &ctx.accounts.quote_vault,
-        &ctx.accounts.token_quote_account,
+        ctx.accounts.token_quote_account.to_account_info(),
         &ctx.accounts.token_quote_program,
         fee,
-        const_pda::pool_authority::BUMP,
+        None,
     )?;
 
     emit_cpi!(EvtWithdrawMigrationFee {

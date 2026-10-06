@@ -1,8 +1,9 @@
-import { BN } from "@coral-xyz/anchor";
+import { BN } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
+import VirtualCurveIDL from "../../target/idl/dynamic_bonding_curve.json";
 
 export const DYNAMIC_BONDING_CURVE_PROGRAM_ID = new PublicKey(
-  "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN"
+  VirtualCurveIDL.address
 );
 
 export const METAPLEX_PROGRAM_ID = new PublicKey(
@@ -22,7 +23,7 @@ export const DAMM_V2_PROGRAM_ID = new PublicKey(
 );
 
 export const TREASURY = new PublicKey(
-  "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
+  "6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm"
 );
 
 export const LOCKER_PROGRAM_ID = new PublicKey(
@@ -34,6 +35,32 @@ export const OFFSET = 64;
 export const U64_MAX = new BN("18446744073709551615");
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
+
+export const PROTOCOL_FEE_PROGRAM_ID = new PublicKey(
+  "pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA"
+);
+
+export const TRANSFER_HOOK_COUNTER_PROGRAM_ID = new PublicKey(
+  "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
+);
+
+export const MigratedCollectFeeMode = {
+  QuoteToken: 0,
+  OutputToken: 1,
+  Compounding: 2,
+} as const;
+
+export const TransferFeeWithheldAuthority = {
+  Partner: 0,
+  Creator: 1,
+} as const;
+
+export const MigratedTransferFeeAuthorityOption = {
+  Immutable: 0,
+  RevokeZeroFee: 1,
+  Creator: 2,
+  Partner: 3,
+} as const;
 
 export const FEE_DENOMINATOR = new BN(1_000_000_000);
 export const FLASH_RENT_FUND = 1e9;

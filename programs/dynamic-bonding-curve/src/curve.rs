@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use ruint::aliases::{U256, U512};
+use ruint::aliases::U256;
 
 use crate::{
     safe_math::SafeMath,
@@ -23,34 +23,6 @@ pub fn get_initialize_amounts(
     let amount_quote =
         get_delta_amount_quote_unsigned(sqrt_min_price, sqrt_price, liquidity, Rounding::Up)?;
     Ok((amount_base, amount_quote))
-}
-
-// Δa = L * (1 / √P_lower - 1 / √P_upper) => L = Δa / (1 / √P_lower - 1 / √P_upper)
-pub fn get_initial_liquidity_from_delta_base(
-    base_amount: u64,
-    sqrt_max_price: u128,
-    sqrt_price: u128,
-) -> Result<U512> {
-    let price_delta = U512::from(sqrt_max_price.safe_sub(sqrt_price)?);
-    let prod = U512::from(base_amount)
-        .safe_mul(U512::from(sqrt_price))?
-        .safe_mul(U512::from(sqrt_max_price))?;
-    let liquidity = prod.safe_div(price_delta)?; // round down
-    Ok(liquidity)
-}
-
-// Δb = L (√P_upper - √P_lower) => L = Δb / (√P_upper - √P_lower)
-pub fn get_initial_liquidity_from_delta_quote(
-    quote_amount: u64,
-    sqrt_min_price: u128,
-    sqrt_price: u128,
-) -> Result<u128> {
-    let price_delta = U256::from(sqrt_price.safe_sub(sqrt_min_price)?);
-    let quote_amount = U256::from(quote_amount).safe_shl(128)?;
-    let liquidity = quote_amount.safe_div(price_delta)?; // round down
-    return Ok(liquidity
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?);
 }
 
 /// Gets the delta amount_a for given liquidity and price range
@@ -94,11 +66,11 @@ pub fn get_delta_amount_base_unsigned_unchecked(
     round: Rounding,
 ) -> Result<U256> {
     let numerator_1 = U256::from(liquidity);
-    let numerator_2 = U256::from(upper_sqrt_price - lower_sqrt_price);
+    let numerator_2 = U256::from(upper_sqrt_price.safe_sub(lower_sqrt_price)?);
 
     let denominator = U256::from(lower_sqrt_price).safe_mul(U256::from(upper_sqrt_price))?;
 
-    assert!(denominator > U256::ZERO);
+    require!(denominator > U256::ZERO, PoolError::MathOverflow);
     let result = mul_div_u256(numerator_1, numerator_2, denominator, round)
         .ok_or_else(|| PoolError::MathOverflow)?;
     return Ok(result);
@@ -141,7 +113,7 @@ pub fn get_delta_amount_quote_unsigned_unchecked(
     round: Rounding,
 ) -> Result<U256> {
     let liquidity = U256::from(liquidity);
-    let delta_sqrt_price = U256::from(upper_sqrt_price - lower_sqrt_price);
+    let delta_sqrt_price = U256::from(upper_sqrt_price.safe_sub(lower_sqrt_price)?);
     let prod = liquidity.safe_mul(delta_sqrt_price)?;
 
     match round {
@@ -182,8 +154,8 @@ pub fn get_next_sqrt_price_from_output(
     amount_out: u64,
     base_for_quote: bool,
 ) -> Result<u128> {
-    assert!(sqrt_price > 0);
-    assert!(liquidity > 0);
+    require!(sqrt_price > 0, PoolError::InvalidCurve);
+    require!(liquidity > 0, PoolError::AmountIsZero);
 
     if base_for_quote {
         get_next_sqrt_price_from_quote_amount_out_rounding_down(sqrt_price, liquidity, amount_out)

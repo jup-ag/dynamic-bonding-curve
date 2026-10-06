@@ -4,11 +4,15 @@ import BN from "bn.js";
 import {
   DAMM_PROGRAM_ID,
   DAMM_V2_PROGRAM_ID,
-  METAPLEX_PROGRAM_ID,
-  VAULT_PROGRAM_ID,
   DYNAMIC_BONDING_CURVE_PROGRAM_ID,
+  METAPLEX_PROGRAM_ID,
+  PROTOCOL_FEE_PROGRAM_ID,
+  VAULT_PROGRAM_ID,
 } from "./constants";
-import { VAULT_BASE_KEY } from "./";
+
+export const VAULT_BASE_KEY = new PublicKey(
+  "HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv"
+);
 
 export function getSecondKey(key1: PublicKey, key2: PublicKey) {
   const buf1 = key1.toBuffer();
@@ -133,6 +137,27 @@ export function deriveClaimFeeOperatorAddress(operator: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("cf_operator"), operator.toBuffer()],
     DYNAMIC_BONDING_CURVE_PROGRAM_ID
+  )[0];
+}
+
+export function deriveOperatorAddress(operator: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("operator"), operator.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
+  )[0];
+}
+
+export function deriveTokenBadgeAddress(tokenMint: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("token_badge"), tokenMint.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
+  )[0];
+}
+
+export function deriveProtocolFeeAuthority(): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("protocol_fee_authority")],
+    PROTOCOL_FEE_PROGRAM_ID
   )[0];
 }
 
