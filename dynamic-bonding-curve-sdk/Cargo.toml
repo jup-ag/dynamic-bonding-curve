@@ -16,7 +16,8 @@ workspace = true
 [dependencies]
 anchor-spl = { workspace = true }
 anyhow = { workspace = true }
-bytemuck = { workspace = true }
 dynamic-bonding-curve = { workspace = true, features = ["no-entrypoint"] }
 ruint = { workspace = true }
-spl-token-2022-interface = { workspace = true }
+
+[dev-dependencies]
+bytemuck = { workspace = true }
