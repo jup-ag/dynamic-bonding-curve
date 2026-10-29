@@ -3,14 +3,12 @@ use crate::{
     quote_exact_out::quote_exact_out,
     quote_partial_fill::quote_partial_fill,
     tests::{get_fee_in_both_accounts, get_fee_in_quote_accounts, TestAccounts},
-    transfer_fee::SwapResultWithTransferFee,
-};
-use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::{
-    TransferFee, TransferFeeConfig,
+    transfer_fee::{get_epoch_fee, SwapResultWithTransferFee},
 };
 use dynamic_bonding_curve::token::{
     calculate_transfer_fee_excluded_amount, calculate_transfer_fee_included_amount,
 };
+use spl_token_2022_interface::extension::transfer_fee::{TransferFee, TransferFeeConfig};
 
 const CURRENT_EPOCH: u64 = 500;
 
@@ -37,15 +35,27 @@ fn quote_fee() -> TransferFeeConfig {
 }
 
 fn excluded(config: &TransferFeeConfig, amount: u64) -> u64 {
-    calculate_transfer_fee_excluded_amount(Some(config.get_epoch_fee(CURRENT_EPOCH)), amount)
+    calculate_transfer_fee_excluded_amount(Some(&get_epoch_fee(config, CURRENT_EPOCH)), amount)
         .unwrap()
         .amount
 }
 
 fn included(config: &TransferFeeConfig, amount: u64) -> u64 {
-    calculate_transfer_fee_included_amount(Some(config.get_epoch_fee(CURRENT_EPOCH)), amount)
+    calculate_transfer_fee_included_amount(Some(&get_epoch_fee(config, CURRENT_EPOCH)), amount)
         .unwrap()
         .amount
+}
+
+#[test]
+fn test_get_epoch_fee_keeps_the_fee_fields() {
+    let mut config = transfer_fee_config(250, 1_000);
+    config.newer_transfer_fee.epoch = 7.into();
+
+    let fee = get_epoch_fee(&config, CURRENT_EPOCH);
+
+    assert_eq!(u64::from(fee.epoch), 7);
+    assert_eq!(u64::from(fee.maximum_fee), 1_000);
+    assert_eq!(u16::from(fee.transfer_fee_basis_points), 250);
 }
 
 // transfer fee on the quote mint only

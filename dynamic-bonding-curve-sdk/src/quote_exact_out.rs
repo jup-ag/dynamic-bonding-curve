@@ -1,5 +1,4 @@
 use crate::transfer_fee::{get_transfer_fees, SwapResultWithTransferFee};
-use anchor_spl::token_2022::spl_token_2022::extension::transfer_fee::TransferFeeConfig;
 use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
@@ -7,6 +6,7 @@ use dynamic_bonding_curve::{
     state::{fee::FeeMode, PoolConfig, PoolState},
     token::calculate_transfer_fee_included_amount,
 };
+use spl_token_2022_interface::extension::transfer_fee::TransferFeeConfig;
 
 pub fn quote_exact_out(
     pool: &PoolState,
